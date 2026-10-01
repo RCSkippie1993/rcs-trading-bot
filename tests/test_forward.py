@@ -43,6 +43,24 @@ class ForwardPaperTests(unittest.TestCase):
         loaded = store.load(10_000)
         self.assertEqual(loaded.cash, 9_500)
 
+    def test_empty_state_file_initializes_fresh_account(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        path = Path(temp.name) / "state.json"
+        path.write_text("", encoding="utf-8")
+        state = JsonStateStore(str(path)).load(10_000)
+        self.assertEqual(state.cash, 10_000)
+        self.assertEqual(state.starting_cash, 10_000)
+        self.assertEqual(state.closed_trades, 0)
+
+    def test_nonempty_corrupt_state_is_rejected(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        path = Path(temp.name) / "state.json"
+        path.write_text("not-json", encoding="utf-8")
+        with self.assertRaises(RuntimeError):
+            JsonStateStore(str(path)).load(10_000)
+
     def test_pending_buy_executes_at_next_bar_open(self):
         engine = self.make_engine()
         engine.state.pending_signal = "BUY"
