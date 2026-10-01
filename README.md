@@ -3,7 +3,7 @@
 A small, risk-controlled trading bot scaffold.
 
 ## Current mode
-**Phase 2C: historical multi-symbol robustness + walk-forward validation + paper execution only.**
+**Phase 2D: historical multi-symbol robustness + walk-forward validation + parameter-stability analysis + paper execution only.**
 
 The bot reads historical OHLCV market bars from Yahoo Finance through `yfinance`. It does **not** connect to a live broker or place real-money orders.
 
@@ -109,6 +109,49 @@ Files:
 - `reports/walk_forward_summary.txt`
 - `reports/walk_forward_<symbol>.csv` for each successful symbol
 
+## Phase 2D parameter stability
+Phase 2D checks whether performance persists across a broad neighborhood of SMA settings instead of depending on one historically optimal pair.
+
+Default setup:
+- history: `2y`
+- interval: `1d`
+- fast windows: `3, 5, 8, 10, 12`
+- slow windows: `10, 12, 15, 20, 25, 30, 40`
+- only valid combinations where fast < slow are tested
+- the same symbol basket, risk rules, fees and slippage are used for every pair
+
+Run:
+
+```bash
+python parameter_stability.py
+```
+
+Optional history/timeframe override:
+
+```bash
+RCS_STAB_PERIOD=5y RCS_STAB_INTERVAL=1d python parameter_stability.py
+```
+
+The analysis reports, for every SMA pair:
+- percentage of symbols with positive strategy return
+- percentage of symbols beating buy-and-hold
+- percentage of symbols with maximum drawdown <=10%
+- median strategy return across symbols
+- median excess return across symbols
+- median maximum drawdown across symbols
+
+A descriptive `broad-stability` flag is reported when a pair meets all three defaults:
+- at least 60% of symbols have positive strategy returns
+- at least 50% of symbols beat buy-and-hold
+- median maximum drawdown is <=10%
+
+This flag is a robustness screen, not proof that a parameter pair will be profitable in live trading.
+
+Files:
+- `reports/parameter_stability.csv`
+- `reports/parameter_stability_detail.csv`
+- `reports/parameter_stability_summary.txt`
+
 ## Safety defaults
 - Starting paper balance: 10,000 account currency units
 - Risk per trade: 0.5% of equity
@@ -133,7 +176,7 @@ The historical backtest includes modeled execution costs:
 Override them with:
 
 ```bash
-RCS_FEE_BPS=15 RCS_SLIPPAGE_BPS=8 python walk_forward.py
+RCS_FEE_BPS=15 RCS_SLIPPAGE_BPS=8 python parameter_stability.py
 ```
 
 ## Reports
@@ -151,6 +194,11 @@ RCS_FEE_BPS=15 RCS_SLIPPAGE_BPS=8 python walk_forward.py
 - `reports/walk_forward_summary.txt`
 - per-symbol walk-forward fold CSV files
 
+### Phase 2D
+- `reports/parameter_stability.csv`
+- `reports/parameter_stability_detail.csv`
+- `reports/parameter_stability_summary.txt`
+
 If one symbol has a data-source error, the remaining symbols continue and the failure is recorded.
 
 ## Install and run
@@ -161,6 +209,7 @@ python -m unittest discover -s tests -v
 python backtest.py
 python portfolio_backtest.py
 python walk_forward.py
+python parameter_stability.py
 ```
 
 ## Automated checks
@@ -169,6 +218,7 @@ GitHub Actions runs:
 2. the Phase 2 single-symbol backtest
 3. the Phase 2B multi-symbol robustness basket
 4. the Phase 2C walk-forward validation
+5. the Phase 2D parameter-stability analysis
 
 All generated reports are uploaded as a workflow artifact.
 
@@ -176,11 +226,11 @@ All generated reports are uploaded as a workflow artifact.
 `yfinance` uses Yahoo Finance's publicly available market-data interfaces and is intended for research/personal use. Market quotes may be delayed, adjusted and incomplete, and they are not an execution feed.
 
 ## Important limitations
-A positive historical or walk-forward result does not establish that the strategy will be profitable live. Walk-forward testing reduces one important form of overfitting but does not remove market-regime risk, data-quality problems, liquidity constraints, survivorship bias, currency effects, execution uncertainty or model-selection bias.
+A positive historical, walk-forward or parameter-stability result does not establish that the strategy will be profitable live. Stability analysis helps identify fragile parameter choices, but it does not remove market-regime risk, data-quality problems, liquidity constraints, survivorship bias, currency effects, execution uncertainty or model-selection bias.
 
 ## Next phase
-1. Review the actual Phase 2C out-of-sample results across the basket.
-2. Add parameter-sensitivity/stability analysis around the selected SMA values.
+1. Review the actual Phase 2C out-of-sample and Phase 2D stability results together.
+2. Reject parameter regions that only work at isolated points.
 3. Add a broker sandbox/paper-trading adapter for continuous forward testing.
 4. Run forward paper trading for a meaningful period before considering live capital.
 5. Only after successful forward testing, consider an explicitly enabled live-trading mode.
