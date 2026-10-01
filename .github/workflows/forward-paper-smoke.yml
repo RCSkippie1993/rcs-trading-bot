@@ -27,10 +27,19 @@ jobs:
           RCS_SYMBOL: "SOL.JO"
           RCS_FORWARD_PERIOD: "5d"
           RCS_FORWARD_INTERVAL: "15m"
+          RCS_FORWARD_STATE: "state/forward_SOL_JO.json"
         run: python forward_paper.py
 
-      - name: Upload forward snapshot
+      - name: Build paper-readiness dashboard
+        env:
+          RCS_FORWARD_STATE: "state/forward_SOL_JO.json"
+        run: python readiness_dashboard.py
+
+      - name: Upload forward reports
         uses: actions/upload-artifact@v4
         with:
           name: forward-paper-smoke
-          path: reports/forward_latest.json
+          path: |
+            reports/forward_latest.json
+            reports/forward_readiness.txt
+            reports/forward_readiness.json
