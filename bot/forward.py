@@ -14,6 +14,7 @@ class ForwardPosition:
     quantity: int
     entry_price: float
     entry_time: str
+    entry_fee: float = 0.0
 
 
 @dataclass
@@ -26,6 +27,7 @@ class ForwardState:
     session_start_equity: Optional[float] = None
     trades_this_session: int = 0
     halted: bool = False
+    pending_signal: Optional[str] = None
 
     # Phase 3 performance ledger. Defaults make old state files compatible.
     starting_cash: float = 0.0
@@ -79,8 +81,9 @@ class JsonStateStore:
 class ForwardPaperEngine:
     """One-symbol forward paper-trading engine.
 
-    The engine processes only completed bars supplied by a data adapter. It never
-    sends orders to a broker. State is persisted after every processed bar.
+    Signals are generated only from completed bars. A close-of-bar signal is
+    queued and executed at the next processed bar's open, avoiding same-close
+    execution. The engine never sends orders to a broker.
     """
 
     def __init__(self, settings: Settings, state_store: JsonStateStore):
@@ -125,7 +128,7 @@ class ForwardPaperEngine:
             return {"action": "HOLD", "reason": "insufficient_cash_or_zero_qty"}
         self.state.cash -= total
         self.state.total_fees += fee
-        self.state.position = ForwardPosition(qty, fill, str(timestamp))
+        self.state.position = ForwardPosition(qty, fill, str(timestamp), fee)
         self.state.trades_this_session += 1
         return {"action": "BUY", "quantity": qty, "fill_price": fill, "fee": fee}
 
@@ -139,7 +142,7 @@ class ForwardPaperEngine:
         gross = fill * qty
         fee = gross * fee_rate
         proceeds = gross - fee
-        cost_basis = self.state.position.entry_price * qty
+        cost_basis = self.state.position.entry_price * qty + self.state.position.entry_fee
         pnl = proceeds - cost_basis
         self.state.cash += proceeds
         self.state.realized_pnl += pnl
@@ -167,16 +170,17 @@ class ForwardPaperEngine:
         if self.state.last_bar_time == bar_time:
             return {"action": "SKIP", "reason": "duplicate_bar", "bar_time": bar_time}
 
-        price = float(bar.close)
+        open_price = float(bar.open)
+        close_price = float(bar.close)
         session = self._session_key(bar.timestamp)
-        current_equity = self.equity(price)
+        opening_equity = self.equity(open_price)
 
         if self.state.session_key != session:
             self.state.session_key = session
-            self.state.session_start_equity = current_equity
+            self.state.session_start_equity = opening_equity
             self.state.trades_this_session = 0
 
-        self.risk.session_start_equity = float(self.state.session_start_equity or current_equity)
+        self.risk.session_start_equity = float(self.state.session_start_equity or opening_equity)
         self.risk.trades = self.state.trades_this_session
 
         if self.state.halted or os.getenv("RCS_KILL_SWITCH", "0") == "1":
@@ -185,33 +189,49 @@ class ForwardPaperEngine:
             self.store.save(self.state)
             return {"action": "HALT", "reason": "kill_switch", "bar_time": bar_time}
 
-        if self.risk.daily_loss_limit_hit(current_equity):
+        if self.risk.daily_loss_limit_hit(opening_equity):
             self.state.halted = True
             self.state.last_bar_time = bar_time
             self.store.save(self.state)
             return {"action": "HALT", "reason": "daily_loss_limit", "bar_time": bar_time}
 
-        signal = self.strategy.on_price(price)
-        result = {"action": "HOLD", "signal": signal, "bar_time": bar_time, "price": price}
+        event = {"action": "HOLD", "bar_time": bar_time, "price": close_price}
 
+        # Execute the prior completed bar's signal at this bar's open.
+        pending = self.state.pending_signal
+        self.state.pending_signal = None
+        if pending == "SELL" and self.state.position:
+            event = self._apply_sell(open_price, bar.timestamp, "signal_next_open")
+        elif pending == "BUY" and not self.state.position and self.risk.can_open_trade(opening_equity):
+            qty = self.risk.position_size(opening_equity, open_price)
+            event = self._apply_buy(open_price, qty, bar.timestamp)
+
+        # Intrabar protection. If both stop and target are touched, stop wins.
         if self.state.position:
             entry = self.state.position.entry_price
             stop = entry * (1.0 - self.settings.stop_loss_pct)
             target = entry * (1.0 + self.settings.take_profit_pct)
             if float(bar.low) <= stop:
-                result = self._apply_sell(stop, bar.timestamp, "stop")
+                # A gap below the stop is filled no better than the bar open.
+                stop_fill = min(stop, open_price)
+                event = self._apply_sell(stop_fill, bar.timestamp, "stop")
             elif float(bar.high) >= target:
-                result = self._apply_sell(target, bar.timestamp, "target")
-            elif signal == "SELL":
-                result = self._apply_sell(price, bar.timestamp, "signal")
-        elif signal == "BUY" and self.risk.can_open_trade(current_equity):
-            qty = self.risk.position_size(current_equity, price)
-            result = self._apply_buy(price, qty, bar.timestamp)
+                # Keep target fills conservative even if the bar gaps above target.
+                event = self._apply_sell(target, bar.timestamp, "target")
 
+        # Generate a new signal only from this completed bar's close.
+        signal = self.strategy.on_price(close_price)
+        if self.state.position and signal == "SELL":
+            self.state.pending_signal = "SELL"
+        elif not self.state.position and signal == "BUY":
+            self.state.pending_signal = "BUY"
+
+        event["signal"] = signal
+        event["pending_signal"] = self.state.pending_signal
         self.state.last_bar_time = bar_time
         if self.state.first_bar_time is None:
             self.state.first_bar_time = bar_time
         self.state.bars_processed += 1
-        self._update_drawdown(price)
+        self._update_drawdown(close_price)
         self.store.save(self.state)
-        return result
+        return event
