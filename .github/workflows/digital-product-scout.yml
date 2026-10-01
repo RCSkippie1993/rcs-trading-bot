@@ -33,7 +33,11 @@ jobs:
         run: pip install -r digital-product-bot/requirements.txt
 
       - name: Verify Python syntax
-        run: python -m py_compile digital-product-bot/bot.py
+        run: python -m py_compile digital-product-bot/bot.py digital-product-bot/selftest.py
+
+      - name: Run product-factory self-test
+        working-directory: digital-product-bot
+        run: python selftest.py
 
       - name: Discover opportunities and create product drafts
         env:
