@@ -31,6 +31,12 @@ def _max_drawdown(equity_curve: List[float]) -> float:
     return worst
 
 
+def _session_key(timestamp: object):
+    if hasattr(timestamp, "date"):
+        return timestamp.date()
+    return str(timestamp)[:10]
+
+
 def run_backtest(bars: Iterable, settings: Settings) -> Dict[str, Any]:
     broker = PaperBroker(settings.starting_cash)
     risk = RiskManager(settings)
@@ -40,12 +46,22 @@ def run_backtest(bars: Iterable, settings: Settings) -> Dict[str, Any]:
     equity_curve: List[float] = [settings.starting_cash]
     entry_time = None
     last_bar = None
+    current_session = None
 
     for bar in bars:
         last_bar = bar
         price = float(bar.close)
         signal = strategy.on_price(price)
         equity = broker.equity(price)
+
+        session = _session_key(bar.timestamp)
+        if current_session is None:
+            current_session = session
+            risk.reset_session(equity)
+        elif session != current_session:
+            current_session = session
+            risk.reset_session(equity)
+
         equity_curve.append(equity)
 
         if broker.position:
