@@ -16,7 +16,7 @@ permissions:
 jobs:
   scout-and-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
@@ -33,21 +33,25 @@ jobs:
         run: pip install -r digital-product-bot/requirements.txt
 
       - name: Verify Python syntax
-        run: python -m py_compile digital-product-bot/bot.py digital-product-bot/selftest.py
+        run: python -m py_compile digital-product-bot/bot.py digital-product-bot/phase2.py digital-product-bot/selftest.py digital-product-bot/selftest_phase2.py
 
       - name: Run product-factory self-test
         working-directory: digital-product-bot
         run: python selftest.py
 
-      - name: Discover opportunities and create product drafts
+      - name: Run Phase 2 self-test
+        working-directory: digital-product-bot
+        run: python selftest_phase2.py
+
+      - name: Research, rank and create approved-quality drafts
         env:
           OUTPUT_DIR: digital-product-output
-        run: python digital-product-bot/bot.py
+        run: python digital-product-bot/phase2.py
 
-      - name: Upload review queue
+      - name: Upload Phase 2 review queue
         uses: actions/upload-artifact@v4
         with:
-          name: digital-product-review-${{ github.run_number }}
+          name: digital-product-phase2-review-${{ github.run_number }}
           path: digital-product-output/
           if-no-files-found: error
           retention-days: 14
