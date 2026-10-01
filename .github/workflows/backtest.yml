@@ -23,11 +23,14 @@ jobs:
       - name: Run deterministic tests
         run: python -m unittest discover -s tests -v
 
-      - name: Run backtest
+      - name: Run single-symbol backtest
         run: python backtest.py
 
-      - name: Upload report
+      - name: Run Phase 2B multi-symbol backtest
+        run: python portfolio_backtest.py
+
+      - name: Upload reports
         uses: actions/upload-artifact@v4
         with:
-          name: backtest-report
+          name: backtest-reports
           path: reports/
