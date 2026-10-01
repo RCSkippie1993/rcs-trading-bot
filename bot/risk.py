@@ -4,6 +4,10 @@ class RiskManager:
         self.session_start_equity = settings.starting_cash
         self.trades = 0
 
+    def reset_session(self, equity: float):
+        self.session_start_equity = float(equity)
+        self.trades = 0
+
     def daily_loss_limit_hit(self, equity: float) -> bool:
         floor = self.session_start_equity * (1 - self.settings.max_daily_loss_pct)
         return equity <= floor
