@@ -38,31 +38,35 @@ def _session_key(timestamp: object):
 
 
 def run_backtest(bars: Iterable, settings: Settings) -> Dict[str, Any]:
-    broker = PaperBroker(settings.starting_cash)
+    bars = list(bars)
+    if not bars:
+        raise RuntimeError("Backtest requires at least one market bar.")
+
+    broker = PaperBroker(
+        settings.starting_cash,
+        fee_bps=settings.fee_bps,
+        slippage_bps=settings.slippage_bps,
+    )
     risk = RiskManager(settings)
     strategy = MovingAverageCrossStrategy(settings.fast_window, settings.slow_window)
 
     trades: List[ClosedTrade] = []
     equity_curve: List[float] = [settings.starting_cash]
     entry_time = None
-    last_bar = None
     current_session = None
 
+    first_close = float(bars[0].close)
+    last_close = first_close
+
     for bar in bars:
-        last_bar = bar
-        price = float(bar.close)
-        signal = strategy.on_price(price)
-        equity = broker.equity(price)
+        last_close = float(bar.close)
+        signal = strategy.on_price(last_close)
+        equity = broker.equity(last_close)
 
         session = _session_key(bar.timestamp)
-        if current_session is None:
+        if current_session is None or session != current_session:
             current_session = session
             risk.reset_session(equity)
-        elif session != current_session:
-            current_session = session
-            risk.reset_session(equity)
-
-        equity_curve.append(equity)
 
         if broker.position:
             entry = broker.position.entry_price
@@ -70,23 +74,30 @@ def run_backtest(bars: Iterable, settings: Settings) -> Dict[str, Any]:
             target_price = entry * (1 + settings.take_profit_pct)
 
             exit_reason = None
-            if price <= stop_price:
+            exit_price = None
+
+            # Conservative intrabar assumption: if both stop and target are touched
+            # in the same candle, assume the stop was hit first.
+            if float(bar.low) <= stop_price:
                 exit_reason = "stop"
-            elif price >= target_price:
+                exit_price = stop_price
+            elif float(bar.high) >= target_price:
                 exit_reason = "target"
+                exit_price = target_price
             elif signal == "SELL":
                 exit_reason = "signal"
+                exit_price = last_close
 
             if exit_reason:
                 pos = broker.position
-                result = broker.sell_all(price)
+                result = broker.sell_all(exit_price)
                 trades.append(
                     ClosedTrade(
                         entry_price=entry,
-                        exit_price=price,
+                        exit_price=float(result["price"]),
                         quantity=pos.quantity,
                         pnl=float(result["pnl"]),
-                        return_pct=(price / entry - 1.0) if entry else 0.0,
+                        return_pct=(float(result["price"]) / entry - 1.0) if entry else 0.0,
                         exit_reason=exit_reason,
                         entry_time=entry_time,
                         exit_time=bar.timestamp,
@@ -97,28 +108,30 @@ def run_backtest(bars: Iterable, settings: Settings) -> Dict[str, Any]:
                 continue
 
         if signal == "BUY" and broker.position is None:
-            equity = broker.equity(price)
+            equity = broker.equity(last_close)
             if risk.can_open_trade(equity):
-                qty = risk.position_size(equity, price)
-                if broker.buy(price, qty):
+                qty = risk.position_size(equity, last_close)
+                fill = broker.buy(last_close, qty)
+                if fill:
                     risk.record_trade()
                     entry_time = bar.timestamp
 
-    if broker.position and last_bar is not None:
-        price = float(last_bar.close)
+        equity_curve.append(broker.equity(last_close))
+
+    if broker.position:
         pos = broker.position
         entry = pos.entry_price
-        result = broker.sell_all(price)
+        result = broker.sell_all(last_close)
         trades.append(
             ClosedTrade(
                 entry_price=entry,
-                exit_price=price,
+                exit_price=float(result["price"]),
                 quantity=pos.quantity,
                 pnl=float(result["pnl"]),
-                return_pct=(price / entry - 1.0) if entry else 0.0,
+                return_pct=(float(result["price"]) / entry - 1.0) if entry else 0.0,
                 exit_reason="end_of_test",
                 entry_time=entry_time,
-                exit_time=last_bar.timestamp,
+                exit_time=bars[-1].timestamp,
             )
         )
         equity_curve.append(broker.cash)
@@ -129,17 +142,31 @@ def run_backtest(bars: Iterable, settings: Settings) -> Dict[str, Any]:
     gross_loss = abs(sum(t.pnl for t in losses))
     profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (float("inf") if gross_profit > 0 else 0.0)
     total_return = (broker.cash / settings.starting_cash - 1.0) if settings.starting_cash else 0.0
+    benchmark_return = (last_close / first_close - 1.0) if first_close else 0.0
+    avg_trade = (sum(t.pnl for t in trades) / len(trades)) if trades else 0.0
+    avg_win = (gross_profit / len(wins)) if wins else 0.0
+    avg_loss = (gross_loss / len(losses)) if losses else 0.0
+    expectancy = (
+        (len(wins) / len(trades)) * avg_win - (len(losses) / len(trades)) * avg_loss
+        if trades else 0.0
+    )
 
     return {
         "starting_equity": settings.starting_cash,
         "ending_equity": broker.cash,
         "net_pnl": broker.cash - settings.starting_cash,
         "total_return_pct": total_return * 100,
+        "benchmark_return_pct": benchmark_return * 100,
+        "excess_return_pct": (total_return - benchmark_return) * 100,
         "trades": len(trades),
         "wins": len(wins),
         "losses": len(losses),
         "win_rate_pct": (len(wins) / len(trades) * 100) if trades else 0.0,
         "profit_factor": profit_factor,
         "max_drawdown_pct": _max_drawdown(equity_curve) * 100,
+        "avg_trade_pnl": avg_trade,
+        "expectancy_pnl": expectancy,
+        "total_fees": broker.total_fees,
         "closed_trades": trades,
+        "equity_curve": equity_curve,
     }
