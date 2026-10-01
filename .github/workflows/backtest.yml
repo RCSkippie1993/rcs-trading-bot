@@ -29,6 +29,9 @@ jobs:
       - name: Run Phase 2B multi-symbol backtest
         run: python portfolio_backtest.py
 
+      - name: Run Phase 2C walk-forward validation
+        run: python walk_forward.py
+
       - name: Upload reports
         uses: actions/upload-artifact@v4
         with:
