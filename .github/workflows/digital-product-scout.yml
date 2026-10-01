@@ -1,0 +1,42 @@
+name: Digital Product Scout
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 06:00 South Africa Standard Time, Monday-Friday (04:00 UTC)
+    - cron: "0 4 * * 1-5"
+
+permissions:
+  contents: read
+
+jobs:
+  scout-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: digital-product-bot/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r digital-product-bot/requirements.txt
+
+      - name: Discover opportunities and create product drafts
+        env:
+          OUTPUT_DIR: digital-product-output
+        run: python digital-product-bot/bot.py
+
+      - name: Upload review queue
+        uses: actions/upload-artifact@v4
+        with:
+          name: digital-product-review-${{ github.run_number }}
+          path: digital-product-output/
+          if-no-files-found: error
+          retention-days: 14
