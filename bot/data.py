@@ -35,7 +35,7 @@ class YahooFinanceData:
             interval=self.interval,
             auto_adjust=True,
             actions=False,
-            repair=True,
+            repair=False,
             raise_errors=True,
         )
 
