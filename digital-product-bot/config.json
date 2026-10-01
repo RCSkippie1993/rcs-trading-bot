@@ -1,8 +1,17 @@
 {
   "minimum_score": 62,
+  "create_threshold": 70,
+  "watch_threshold": 58,
   "max_products_per_run": 3,
+  "phase2_research_candidates": 12,
+  "duplicate_similarity_threshold": 0.78,
+  "market_research_delay_seconds": 0.25,
   "google_suggest_limit_per_seed": 8,
   "reddit_posts_per_query": 20,
+  "marketplace_domains": {
+    "etsy": "etsy.com/listing",
+    "gumroad": "gumroad.com"
+  },
   "seed_markets": [
     "small business spreadsheet",
     "freelancer template",
