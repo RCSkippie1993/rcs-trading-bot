@@ -60,7 +60,16 @@ class JsonStateStore:
     def load(self, starting_cash: float) -> ForwardState:
         if not self.path.exists():
             return ForwardState.fresh(starting_cash)
-        raw = json.loads(self.path.read_text(encoding="utf-8"))
+
+        text = self.path.read_text(encoding="utf-8")
+        if not text.strip():
+            return ForwardState.fresh(starting_cash)
+
+        try:
+            raw = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"Paper state file is not valid JSON: {self.path}") from exc
+
         pos = raw.get("position")
         if pos:
             raw["position"] = ForwardPosition(**pos)
