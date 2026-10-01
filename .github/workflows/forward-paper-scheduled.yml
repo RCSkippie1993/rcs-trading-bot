@@ -34,10 +34,16 @@ jobs:
       - name: Restore durable paper state
         shell: bash
         run: |
+          set -euo pipefail
           git fetch origin paper-state:refs/remotes/origin/paper-state
           mkdir -p state reports
           for symbol in SOL_JO NPN_JO MTN_JO FSR_JO SBK_JO; do
-            git show "origin/paper-state:state/forward_${symbol}.json" > "state/forward_${symbol}.json" 2>/dev/null || true
+            path="state/forward_${symbol}.json"
+            if git cat-file -e "origin/paper-state:${path}" 2>/dev/null; then
+              git show "origin/paper-state:${path}" > "$path"
+            else
+              rm -f "$path"
+            fi
           done
           if git cat-file -e origin/paper-state:state/KILL_SWITCH 2>/dev/null; then
             echo "RCS_KILL_SWITCH=1" >> "$GITHUB_ENV"
@@ -52,15 +58,27 @@ jobs:
           RCS_FORWARD_PERIOD: "10d"
           RCS_FORWARD_INTERVAL: "15m"
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          successes=0
+          failures=0
           for symbol in SOL.JO NPN.JO MTN.JO FSR.JO SBK.JO; do
             safe="${symbol//./_}"
             echo "=== ${symbol} ==="
-            RCS_SYMBOL="$symbol" \
-            RCS_FORWARD_STATE="state/forward_${safe}.json" \
-            python forward_paper.py
-            cp reports/forward_latest.json "reports/forward_${safe}.json"
+            if RCS_SYMBOL="$symbol" \
+               RCS_FORWARD_STATE="state/forward_${safe}.json" \
+               python forward_paper.py; then
+              cp reports/forward_latest.json "reports/forward_${safe}.json"
+              successes=$((successes + 1))
+            else
+              echo "${symbol} failed this cycle; continuing with remaining symbols." >&2
+              failures=$((failures + 1))
+            fi
           done
+          echo "Successful symbols: ${successes}; failed symbols: ${failures}"
+          if [ "$successes" -eq 0 ]; then
+            echo "All symbols failed; aborting this cycle." >&2
+            exit 1
+          fi
 
       - name: Build Phase 3 readiness dashboard
         run: python readiness_dashboard.py
@@ -72,7 +90,13 @@ jobs:
           rm -rf /tmp/paper-state
           git worktree add --detach /tmp/paper-state origin/paper-state
           mkdir -p /tmp/paper-state/state
-          cp state/forward_*.json /tmp/paper-state/state/
+          shopt -s nullglob
+          state_files=(state/forward_*.json)
+          if [ "${#state_files[@]}" -eq 0 ]; then
+            echo "No paper state files were produced; refusing to persist an empty state set." >&2
+            exit 1
+          fi
+          cp "${state_files[@]}" /tmp/paper-state/state/
           cd /tmp/paper-state
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -85,6 +109,7 @@ jobs:
           fi
 
       - name: Upload forward-paper reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phase3-forward-paper-reports
