@@ -1,0 +1,62 @@
+{
+  "minimum_score": 62,
+  "max_products_per_run": 3,
+  "google_suggest_limit_per_seed": 8,
+  "reddit_posts_per_query": 20,
+  "seed_markets": [
+    "small business spreadsheet",
+    "freelancer template",
+    "content planner",
+    "project tracker",
+    "personal budget spreadsheet",
+    "inventory tracker",
+    "client onboarding checklist",
+    "quote tracker",
+    "invoice tracker",
+    "fitness tracker spreadsheet",
+    "property maintenance checklist",
+    "social media content calendar"
+  ],
+  "reddit_communities": [
+    "smallbusiness",
+    "Entrepreneur",
+    "freelance",
+    "productivity"
+  ],
+  "commercial_intent_terms": [
+    "template",
+    "spreadsheet",
+    "tracker",
+    "planner",
+    "checklist",
+    "calculator",
+    "dashboard",
+    "calendar",
+    "worksheet",
+    "notion",
+    "excel",
+    "google sheets"
+  ],
+  "excluded_terms": [
+    "legal advice",
+    "contract template",
+    "medical",
+    "diagnosis",
+    "prescription",
+    "investment advice",
+    "trading signals",
+    "tax advice",
+    "copyrighted",
+    "trademark",
+    "celebrity",
+    "disney",
+    "marvel"
+  ],
+  "price_bands_usd": {
+    "checklist": [5, 12],
+    "planner": [7, 19],
+    "tracker": [9, 24],
+    "calculator": [12, 29],
+    "toolkit": [15, 39]
+  }
+}
