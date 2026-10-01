@@ -27,9 +27,28 @@ class ForwardState:
     trades_this_session: int = 0
     halted: bool = False
 
+    # Phase 3 performance ledger. Defaults make old state files compatible.
+    starting_cash: float = 0.0
+    bars_processed: int = 0
+    closed_trades: int = 0
+    wins: int = 0
+    losses: int = 0
+    gross_profit: float = 0.0
+    gross_loss: float = 0.0
+    total_fees: float = 0.0
+    peak_equity: float = 0.0
+    max_drawdown_pct: float = 0.0
+    first_bar_time: Optional[str] = None
+
     @classmethod
     def fresh(cls, starting_cash: float):
-        return cls(cash=float(starting_cash), session_start_equity=float(starting_cash))
+        starting_cash = float(starting_cash)
+        return cls(
+            cash=starting_cash,
+            session_start_equity=starting_cash,
+            starting_cash=starting_cash,
+            peak_equity=starting_cash,
+        )
 
 
 class JsonStateStore:
@@ -43,7 +62,12 @@ class JsonStateStore:
         pos = raw.get("position")
         if pos:
             raw["position"] = ForwardPosition(**pos)
-        return ForwardState(**raw)
+        state = ForwardState(**raw)
+        if state.starting_cash <= 0:
+            state.starting_cash = float(starting_cash)
+        if state.peak_equity <= 0:
+            state.peak_equity = max(state.starting_cash, state.cash)
+        return state
 
     def save(self, state: ForwardState):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -83,6 +107,13 @@ class ForwardPaperEngine:
         for close in closes:
             self.strategy.on_price(float(close))
 
+    def _update_drawdown(self, mark_price: float):
+        equity = self.equity(mark_price)
+        self.state.peak_equity = max(self.state.peak_equity, equity)
+        if self.state.peak_equity > 0:
+            dd = (self.state.peak_equity - equity) / self.state.peak_equity * 100.0
+            self.state.max_drawdown_pct = max(self.state.max_drawdown_pct, dd)
+
     def _apply_buy(self, price: float, qty: int, timestamp) -> dict:
         slip = self.settings.slippage_bps / 10_000.0
         fee_rate = self.settings.fee_bps / 10_000.0
@@ -93,6 +124,7 @@ class ForwardPaperEngine:
         if qty <= 0 or total > self.state.cash:
             return {"action": "HOLD", "reason": "insufficient_cash_or_zero_qty"}
         self.state.cash -= total
+        self.state.total_fees += fee
         self.state.position = ForwardPosition(qty, fill, str(timestamp))
         self.state.trades_this_session += 1
         return {"action": "BUY", "quantity": qty, "fill_price": fill, "fee": fee}
@@ -111,6 +143,14 @@ class ForwardPaperEngine:
         pnl = proceeds - cost_basis
         self.state.cash += proceeds
         self.state.realized_pnl += pnl
+        self.state.total_fees += fee
+        self.state.closed_trades += 1
+        if pnl > 0:
+            self.state.wins += 1
+            self.state.gross_profit += pnl
+        elif pnl < 0:
+            self.state.losses += 1
+            self.state.gross_loss += abs(pnl)
         self.state.position = None
         return {
             "action": "SELL",
@@ -169,5 +209,9 @@ class ForwardPaperEngine:
             result = self._apply_buy(price, qty, bar.timestamp)
 
         self.state.last_bar_time = bar_time
+        if self.state.first_bar_time is None:
+            self.state.first_bar_time = bar_time
+        self.state.bars_processed += 1
+        self._update_drawdown(price)
         self.store.save(self.state)
         return result
