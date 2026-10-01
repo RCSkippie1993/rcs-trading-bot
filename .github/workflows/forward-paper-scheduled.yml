@@ -1,0 +1,92 @@
+name: Phase 3 Scheduled Forward Paper
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 5 minutes after each 15-minute boundary during the core JSE weekday window.
+    # GitHub cron is UTC; South Africa is UTC+2 year-round.
+    - cron: "5,20,35,50 7-15 * * 1-5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: phase3-forward-paper
+  cancel-in-progress: false
+
+jobs:
+  forward-paper:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout strategy code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore durable paper state
+        shell: bash
+        run: |
+          git fetch origin paper-state:refs/remotes/origin/paper-state
+          mkdir -p state reports
+          for symbol in SOL_JO NPN_JO MTN_JO FSR_JO SBK_JO; do
+            git show "origin/paper-state:state/forward_${symbol}.json" > "state/forward_${symbol}.json" 2>/dev/null || true
+          done
+          if git cat-file -e origin/paper-state:state/KILL_SWITCH 2>/dev/null; then
+            echo "RCS_KILL_SWITCH=1" >> "$GITHUB_ENV"
+          else
+            echo "RCS_KILL_SWITCH=0" >> "$GITHUB_ENV"
+          fi
+
+      - name: Process completed JSE paper bars
+        shell: bash
+        env:
+          RCS_FORWARD_ENABLED: "1"
+          RCS_FORWARD_PERIOD: "10d"
+          RCS_FORWARD_INTERVAL: "15m"
+        run: |
+          set -euo pipefail
+          for symbol in SOL.JO NPN.JO MTN.JO FSR.JO SBK.JO; do
+            safe="${symbol//./_}"
+            echo "=== ${symbol} ==="
+            RCS_SYMBOL="$symbol" \
+            RCS_FORWARD_STATE="state/forward_${safe}.json" \
+            python forward_paper.py
+            cp reports/forward_latest.json "reports/forward_${safe}.json"
+          done
+
+      - name: Build Phase 3 readiness dashboard
+        run: python readiness_dashboard.py
+
+      - name: Persist paper state to dedicated branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/paper-state
+          git worktree add --detach /tmp/paper-state origin/paper-state
+          mkdir -p /tmp/paper-state/state
+          cp state/forward_*.json /tmp/paper-state/state/
+          cd /tmp/paper-state
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f state/forward_*.json
+          if git diff --cached --quiet; then
+            echo "No paper-state changes to persist."
+          else
+            git commit -m "Update Phase 3 paper state"
+            git push origin HEAD:paper-state
+          fi
+
+      - name: Upload forward-paper reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3-forward-paper-reports
+          path: reports/
+          retention-days: 30
