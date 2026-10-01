@@ -1,0 +1,22 @@
+{
+  "bars_processed": 1,
+  "cash": 10000.0,
+  "closed_trades": 0,
+  "first_bar_time": "2026-10-01 16:45:00+02:00",
+  "gross_loss": 0.0,
+  "gross_profit": 0.0,
+  "halted": false,
+  "last_bar_time": "2026-10-01 16:45:00+02:00",
+  "losses": 0,
+  "max_drawdown_pct": 0.0,
+  "peak_equity": 10000.0,
+  "pending_signal": null,
+  "position": null,
+  "realized_pnl": 0.0,
+  "session_key": "2026-10-01",
+  "session_start_equity": 10000.0,
+  "starting_cash": 10000.0,
+  "total_fees": 0.0,
+  "trades_this_session": 0,
+  "wins": 0
+}
