@@ -3,12 +3,12 @@
 A risk-controlled research and paper-trading system.
 
 ## Current mode
-**Phase 3: forward-paper architecture + decision dashboard + Phase 2 historical validation.**
+**Phase 3: scheduled multi-symbol forward paper trading + Phase 2 historical validation.**
 
-The repository supports historical backtesting, multi-symbol robustness tests, walk-forward validation, parameter-stability analysis, stateful forward paper execution, and an independent paper-readiness dashboard. It still does **not** place real-money broker orders.
+The repository supports historical backtesting, multi-symbol robustness tests, walk-forward validation, parameter-stability analysis, and stateful forward paper execution. It still does **not** connect to a live broker or place real-money orders.
 
 ## Safety defaults
-- Starting paper balance: 10,000 account-currency units
+- Starting paper balance: 10,000 account-currency units per symbol
 - Risk per trade: 0.5% of equity
 - Maximum daily loss: 2% of session-start equity
 - Maximum position allocation: 10% of equity
@@ -22,79 +22,99 @@ The repository supports historical backtesting, multi-symbol robustness tests, w
 The forward engine lives in `bot/forward.py` and is run through `forward_paper.py`.
 
 It provides:
-- persistent JSON account/position state
+- persistent account/position state
 - duplicate-bar protection
+- completed-bar filtering
+- replay of missed completed bars after a delayed run
+- signal-at-close / execution-at-next-bar-open modeling
 - simulated buy/sell fills
-- fees and slippage
+- entry and exit fees in realized P&L
+- conservative gap-down stop handling
 - stop-loss and take-profit handling
 - daily loss cutoff
 - session trade limits
 - persisted halt state
 - environment-variable kill switch
-- forward performance ledger: closed trades, wins/losses, gross profit/loss, fees, bars processed, peak equity and maximum drawdown
-- latest-run JSON snapshot
+- performance ledger for the readiness dashboard
 
-The runner is disabled by default. To process one new market bar:
+The runner is disabled by default. A single manual paper cycle can be run with:
 
 ```bash
 RCS_FORWARD_ENABLED=1 \
 RCS_SYMBOL=SOL.JO \
-RCS_FORWARD_PERIOD=5d \
+RCS_FORWARD_PERIOD=10d \
 RCS_FORWARD_INTERVAL=15m \
-RCS_FORWARD_STATE=state/forward_SOL_JO.json \
 python forward_paper.py
 ```
 
-Both `state/` and `reports/` are ignored by Git so account state is not accidentally committed.
+## Scheduled zero-cost Phase 3 runtime
+`.github/workflows/forward-paper-scheduled.yml` is the current automated paper runtime.
 
-### Kill switch
-Set:
+It runs five minutes after each 15-minute boundary during the weekday JSE trading window and processes:
+- `SOL.JO`
+- `NPN.JO`
+- `MTN.JO`
+- `FSR.JO`
+- `SBK.JO`
+
+Each symbol has an independent paper account/state file. The workflow:
+1. restores the previous state from the dedicated `paper-state` branch;
+2. fetches recent Yahoo market data;
+3. ignores any still-forming candle;
+4. replays every completed bar not previously processed;
+5. executes queued signals at the next bar open;
+6. updates each paper account;
+7. builds the readiness dashboard;
+8. writes the updated state back to `paper-state`;
+9. uploads the run reports as a GitHub Actions artifact.
+
+The `paper-state` branch contains **paper simulation state only**. No API keys, passwords, broker credentials or real account data should ever be stored there.
+
+GitHub scheduled workflows can run late, especially during platform load. The replay logic is designed to process missed completed candles when that happens. This runtime is suitable for research/forward-paper observation, not live order execution.
+
+## Kill switch
+The engine also supports:
 
 ```bash
 RCS_KILL_SWITCH=1
 ```
 
-The engine will persist a halted state and stop opening or closing simulated positions. A halted state should be reviewed deliberately before being reset.
+For the scheduled GitHub runtime, creating the file below on the `paper-state` branch activates the same halt behavior on the next run:
 
-## Phase 3 decision dashboard
+```text
+state/KILL_SWITCH
+```
+
+The bot then persists a halted state. Restarting after a halt should be a deliberate review action.
+
+## Phase 3 readiness dashboard
 Run:
 
 ```bash
 python readiness_dashboard.py
 ```
 
-The dashboard is deliberately separate from the execution loop. It can evaluate paper results but cannot place trades or enable live trading.
-
 Default research gates:
 - at least 30 closed paper trades per adequately sampled symbol
-- positive total return after modeled costs
+- positive return after modeled costs
 - profit factor >= 1.20
 - maximum drawdown <= 10%
-- at least 60% of adequately sampled symbols with positive return
+- at least 60% of adequately sampled symbols with positive returns
 
-Statuses:
-- `INSUFFICIENT DATA`: keep collecting paper trades
-- `NOT READY`: one or more risk/performance gates failed
-- `READY FOR MANUAL REVIEW`: paper gates passed; this is **not** automatic permission to use live capital
+Possible statuses:
+- `INSUFFICIENT DATA`
+- `NOT READY`
+- `READY FOR MANUAL REVIEW`
 
-Thresholds can be changed with environment variables:
+`READY FOR MANUAL REVIEW` is not permission to trade live and is not a profit guarantee.
 
-```bash
-RCS_GATE_MIN_TRADES=50 \
-RCS_GATE_MIN_PROFIT_FACTOR=1.30 \
-RCS_GATE_MAX_DRAWDOWN_PCT=8 \
-RCS_GATE_MIN_POSITIVE_SYMBOL_PCT=70 \
-python readiness_dashboard.py
-```
-
-Dashboard files:
+Reports:
 - `reports/forward_readiness.txt`
 - `reports/forward_readiness.json`
+- per-symbol latest snapshots under `reports/forward_<symbol>.json` in scheduled runs
 
-## GitHub Actions
-`.github/workflows/forward-paper-smoke.yml` provides a **manual-only** Phase 3 smoke test. It runs deterministic tests, processes one paper bar, builds the readiness dashboard, and uploads the forward reports.
-
-It is intentionally not scheduled as the continuous runtime because GitHub Actions does not provide a suitable persistent local-state model for a trading loop. Continuous paper operation should run on a persistent worker/container with durable storage.
+## Manual GitHub smoke test
+`.github/workflows/forward-paper-smoke.yml` remains available as a manual one-cycle smoke test. It does not serve as the durable scheduled runtime.
 
 ## Market data
 The project currently uses `yfinance>=1.7.0,<2` for research and forward paper data. Yahoo market data can be delayed, adjusted, incomplete, or unsuitable for execution decisions. It is not a broker execution feed.
@@ -121,10 +141,19 @@ Default basket:
 python walk_forward.py
 ```
 
+Default walk-forward setup:
+- history: 2 years
+- daily bars
+- 252-bar training window
+- 63-bar unseen test window
+- candidates: `(3,10)`, `(5,12)`, `(8,20)`, `(10,30)`
+
 ### Parameter stability — Phase 2D
 ```bash
 python parameter_stability.py
 ```
+
+The stability analysis tests a neighborhood of SMA combinations across the basket rather than selecting a single historical winner.
 
 ## Tests
 ```bash
@@ -132,41 +161,38 @@ pip install -r requirements.txt
 python -m unittest discover -s tests -v
 ```
 
-Tests cover the historical engine, walk-forward logic, parameter grid, persistent state, duplicate-bar handling, halt behavior, and Phase 3 readiness gates.
+Tests cover the historical engine, walk-forward logic, parameter grid, persistent state, duplicate-bar handling, halt behavior, next-open forward execution and readiness gates.
 
 ## Reports
-Phase 2:
+### Phase 2
 - `reports/latest_summary.txt`
 - `reports/latest_trades.csv`
 - `reports/latest_equity.csv`
 
-Phase 2B:
+### Phase 2B
 - `reports/portfolio_comparison.csv`
 - `reports/portfolio_summary.txt`
 
-Phase 2C:
+### Phase 2C
 - `reports/walk_forward_summary.csv`
 - `reports/walk_forward_summary.txt`
 - per-symbol fold files
 
-Phase 2D:
+### Phase 2D
 - `reports/parameter_stability.csv`
 - `reports/parameter_stability_detail.csv`
 - `reports/parameter_stability_summary.txt`
 
-Phase 3:
+### Phase 3
 - `reports/forward_latest.json`
 - `reports/forward_readiness.txt`
 - `reports/forward_readiness.json`
-- `state/forward_<symbol>.json`
+- persistent paper state on the `paper-state` branch
 
-## Important limitation
-A historical, walk-forward, stability, forward-paper, or dashboard result does not establish that a strategy will be profitable with real capital. Forward paper fills remain simulations and can differ materially from live execution, spreads, gaps, liquidity, market impact, outages, taxes, FX conversion, and broker-specific behavior.
+## Important limitations
+Historical, walk-forward, stability and forward-paper results do not establish that the strategy will be profitable with real capital. Paper fills can differ materially from actual spreads, gaps, queue position, liquidity, market impact, outages, taxes, FX conversion and broker-specific execution.
 
-`READY FOR MANUAL REVIEW` only means the configured paper-research gates have been met. It is not a guarantee, recommendation, or automatic live-trading trigger.
-
-## Phase 3 deployment step
-Run `forward_paper.py` on a persistent worker with durable state storage and a controlled polling schedule. After a meaningful forward-paper observation period, a broker-specific paper-account adapter can replace the local simulated-fill layer while keeping live trading disabled.
+The GitHub scheduler is intentionally a **paper-research runtime only**. Before any real-money consideration, the next infrastructure step should be a broker-supported paper account and a persistent service with proper secrets, monitoring, reconciliation and broker-side controls.
 
 ## Secrets
-Never commit API keys or account credentials. Future broker connections must use environment variables or the deployment platform's secret store.
+Never commit API keys or account credentials. Future broker connections must use the deployment platform's secret store or protected environment variables.
