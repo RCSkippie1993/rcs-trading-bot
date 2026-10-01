@@ -1,0 +1,36 @@
+name: Phase 3 Forward Paper Smoke Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  forward-paper-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run deterministic tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Process one forward paper bar
+        env:
+          RCS_FORWARD_ENABLED: "1"
+          RCS_SYMBOL: "SOL.JO"
+          RCS_FORWARD_PERIOD: "5d"
+          RCS_FORWARD_INTERVAL: "15m"
+        run: python forward_paper.py
+
+      - name: Upload forward snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: forward-paper-smoke
+          path: reports/forward_latest.json
