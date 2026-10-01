@@ -1,239 +1,152 @@
 # RCS Trading Bot
 
-A small, risk-controlled trading bot scaffold.
+A risk-controlled research and paper-trading system.
 
 ## Current mode
-**Phase 2D: historical multi-symbol robustness + walk-forward validation + parameter-stability analysis + paper execution only.**
+**Phase 3: continuous-forward-paper architecture + Phase 2 historical validation.**
 
-The bot reads historical OHLCV market bars from Yahoo Finance through `yfinance`. It does **not** connect to a live broker or place real-money orders.
-
-## Phase 2 single-symbol defaults
-- Symbol: `SOL.JO` (Sasol, JSE)
-- Period: `6mo`
-- Interval: `1h`
-- JSE `.JO` prices are normalized from Yahoo's ZAc quotes to ZAR.
-
-Run:
-
-```bash
-python backtest.py
-```
-
-Override the symbol/timeframe with environment variables:
-
-```bash
-RCS_SYMBOL=MTN.JO RCS_PERIOD=1y RCS_INTERVAL=1d python backtest.py
-```
-
-## Phase 2B multi-symbol basket
-The default robustness basket applies the same strategy, risk limits and execution costs to:
-
-### JSE
-- `SOL.JO`
-- `NPN.JO`
-- `MTN.JO`
-- `FSR.JO`
-- `SBK.JO`
-
-### US ETFs
-- `SPY`
-- `QQQ`
-- `IWM`
-- `DIA`
-
-Run:
-
-```bash
-python portfolio_backtest.py
-```
-
-Override the basket:
-
-```bash
-RCS_SYMBOLS="SOL.JO,MTN.JO,FSR.JO,SPY,QQQ" python portfolio_backtest.py
-```
-
-The cross-market comparison is primarily percentage-based. Absolute account P&L is not directly comparable between JSE and US instruments because they trade in different currencies.
-
-## Phase 2C walk-forward validation
-Phase 2C tests whether the strategy survives unseen data rather than only fitting the full historical sample.
-
-Default walk-forward setup:
-- history: `2y`
-- interval: `1d`
-- training window: 252 bars
-- unseen test window: 63 bars
-- step: 63 bars
-- SMA candidates: `(3,10)`, `(5,12)`, `(8,20)`, `(10,30)`
-
-For every fold:
-1. Only the training window is used for parameter selection.
-2. Candidates are scored on training excess return with a drawdown penalty.
-3. The selected SMA pair is frozen.
-4. The immediately following test window is run out-of-sample.
-5. The process rolls forward and repeats.
-
-Run:
-
-```bash
-python walk_forward.py
-```
-
-Optional overrides:
-
-```bash
-RCS_WF_PERIOD=5y \
-RCS_WF_INTERVAL=1d \
-RCS_WF_TRAIN_BARS=504 \
-RCS_WF_TEST_BARS=126 \
-RCS_WF_STEP_BARS=126 \
-python walk_forward.py
-```
-
-The Phase 2C report records:
-- selected SMA parameters per fold
-- training return and drawdown
-- unseen test return
-- unseen buy-and-hold return
-- unseen excess return
-- unseen drawdown
-- test trade count, win rate, profit factor and expectancy
-- compounded out-of-sample return per symbol
-- compounded benchmark return per symbol
-- percentage of positive test folds
-- percentage of test folds beating the benchmark
-- cross-symbol median out-of-sample results
-
-Files:
-- `reports/walk_forward_summary.csv`
-- `reports/walk_forward_summary.txt`
-- `reports/walk_forward_<symbol>.csv` for each successful symbol
-
-## Phase 2D parameter stability
-Phase 2D checks whether performance persists across a broad neighborhood of SMA settings instead of depending on one historically optimal pair.
-
-Default setup:
-- history: `2y`
-- interval: `1d`
-- fast windows: `3, 5, 8, 10, 12`
-- slow windows: `10, 12, 15, 20, 25, 30, 40`
-- only valid combinations where fast < slow are tested
-- the same symbol basket, risk rules, fees and slippage are used for every pair
-
-Run:
-
-```bash
-python parameter_stability.py
-```
-
-Optional history/timeframe override:
-
-```bash
-RCS_STAB_PERIOD=5y RCS_STAB_INTERVAL=1d python parameter_stability.py
-```
-
-The analysis reports, for every SMA pair:
-- percentage of symbols with positive strategy return
-- percentage of symbols beating buy-and-hold
-- percentage of symbols with maximum drawdown <=10%
-- median strategy return across symbols
-- median excess return across symbols
-- median maximum drawdown across symbols
-
-A descriptive `broad-stability` flag is reported when a pair meets all three defaults:
-- at least 60% of symbols have positive strategy returns
-- at least 50% of symbols beat buy-and-hold
-- median maximum drawdown is <=10%
-
-This flag is a robustness screen, not proof that a parameter pair will be profitable in live trading.
-
-Files:
-- `reports/parameter_stability.csv`
-- `reports/parameter_stability_detail.csv`
-- `reports/parameter_stability_summary.txt`
+The repository now supports historical backtesting, multi-symbol robustness tests, walk-forward validation, parameter-stability analysis, and stateful forward paper execution. It still does **not** place real-money broker orders.
 
 ## Safety defaults
-- Starting paper balance: 10,000 account currency units
+- Starting paper balance: 10,000 account-currency units
 - Risk per trade: 0.5% of equity
-- Maximum daily loss: 2% of starting daily equity
+- Maximum daily loss: 2% of session-start equity
 - Maximum position allocation: 10% of equity
 - Maximum 3 entries per session
 - No leverage
 - Long-only
+- Modeled fee: 10 bps per side
+- Modeled slippage: 5 bps per side
 
-## Strategy
-A simple moving-average crossover:
-- Buy when the fast SMA crosses above the slow SMA.
-- Exit when the fast SMA crosses below the slow SMA, stop-loss is hit, or take-profit is hit.
-- Stops and targets are evaluated against each bar's high and low, not merely its close.
-- If a candle touches both stop and target, the backtest uses the conservative assumption that the stop was hit first.
+## Phase 3 forward paper trading
+The forward engine lives in `bot/forward.py` and is run through `forward_paper.py`.
 
-## Execution assumptions
-The historical backtest includes modeled execution costs:
-- Default fee: **10 basis points per side**
-- Default slippage: **5 basis points per side**
+It provides:
+- persistent JSON account/position state
+- duplicate-bar protection
+- simulated buy/sell fills
+- fees and slippage
+- stop-loss and take-profit handling
+- daily loss cutoff
+- session trade limits
+- persisted halt state
+- environment-variable kill switch
+- latest-run JSON snapshot
 
-Override them with:
+The runner is disabled by default. To process one new market bar:
 
 ```bash
-RCS_FEE_BPS=15 RCS_SLIPPAGE_BPS=8 python parameter_stability.py
+RCS_FORWARD_ENABLED=1 \
+RCS_SYMBOL=SOL.JO \
+RCS_FORWARD_PERIOD=5d \
+RCS_FORWARD_INTERVAL=15m \
+python forward_paper.py
 ```
 
-## Reports
-### Phase 2
+State is stored by default at:
+
+```text
+state/forward_state.json
+```
+
+Latest snapshot:
+
+```text
+reports/forward_latest.json
+```
+
+Both `state/` and `reports/` are ignored by Git so account state is not accidentally committed.
+
+### Kill switch
+Set:
+
+```bash
+RCS_KILL_SWITCH=1
+```
+
+The engine will persist a halted state and stop opening or closing simulated positions. A halted state should be reviewed deliberately before being reset.
+
+## GitHub Actions
+`.github/workflows/forward-paper-smoke.yml` provides a **manual-only** Phase 3 smoke test. It processes one forward paper bar and uploads the resulting snapshot.
+
+It is intentionally not scheduled as the continuous runtime because GitHub Actions does not provide a suitable persistent local state model for a trading loop. Continuous paper operation should run on a persistent worker/container with durable storage.
+
+## Market data
+The project currently uses `yfinance>=1.7.0,<2` for research and forward paper data. Yahoo market data can be delayed, adjusted, incomplete, or unsuitable for execution decisions. It is not a broker execution feed.
+
+JSE `.JO` prices are normalized from Yahoo's ZAc quotes to ZAR by the data adapter.
+
+## Phase 2 historical validation
+### Single symbol
+```bash
+python backtest.py
+```
+
+### Multi-symbol robustness — Phase 2B
+```bash
+python portfolio_backtest.py
+```
+
+Default basket:
+- JSE: `SOL.JO`, `NPN.JO`, `MTN.JO`, `FSR.JO`, `SBK.JO`
+- US ETFs: `SPY`, `QQQ`, `IWM`, `DIA`
+
+### Walk-forward validation — Phase 2C
+```bash
+python walk_forward.py
+```
+
+Default walk-forward setup:
+- history: 2 years
+- daily bars
+- 252-bar training window
+- 63-bar unseen test window
+- candidates: `(3,10)`, `(5,12)`, `(8,20)`, `(10,30)`
+
+### Parameter stability — Phase 2D
+```bash
+python parameter_stability.py
+```
+
+The stability analysis tests a neighborhood of SMA combinations across the basket rather than selecting a single historical winner.
+
+## Tests
+```bash
+pip install -r requirements.txt
+python -m unittest discover -s tests -v
+```
+
+Tests cover the historical engine, walk-forward logic, parameter grid, persistent state, duplicate-bar handling, and halt behavior.
+
+## Existing reports
+Phase 2:
 - `reports/latest_summary.txt`
 - `reports/latest_trades.csv`
 - `reports/latest_equity.csv`
 
-### Phase 2B
+Phase 2B:
 - `reports/portfolio_comparison.csv`
 - `reports/portfolio_summary.txt`
 
-### Phase 2C
+Phase 2C:
 - `reports/walk_forward_summary.csv`
 - `reports/walk_forward_summary.txt`
-- per-symbol walk-forward fold CSV files
+- per-symbol fold files
 
-### Phase 2D
+Phase 2D:
 - `reports/parameter_stability.csv`
 - `reports/parameter_stability_detail.csv`
 - `reports/parameter_stability_summary.txt`
 
-If one symbol has a data-source error, the remaining symbols continue and the failure is recorded.
+Phase 3:
+- `reports/forward_latest.json`
+- `state/forward_state.json`
 
-## Install and run
+## Important limitation
+A historical, walk-forward, stability, or forward-paper result does not establish that a strategy will be profitable with real capital. Forward paper fills remain simulations and can differ materially from live execution, spreads, gaps, liquidity, market-impact, outages, taxes, FX conversion, and broker-specific behavior.
 
-```bash
-pip install -r requirements.txt
-python -m unittest discover -s tests -v
-python backtest.py
-python portfolio_backtest.py
-python walk_forward.py
-python parameter_stability.py
-```
-
-## Automated checks
-GitHub Actions runs:
-1. deterministic unit tests
-2. the Phase 2 single-symbol backtest
-3. the Phase 2B multi-symbol robustness basket
-4. the Phase 2C walk-forward validation
-5. the Phase 2D parameter-stability analysis
-
-All generated reports are uploaded as a workflow artifact.
-
-## Data note
-`yfinance` uses Yahoo Finance's publicly available market-data interfaces and is intended for research/personal use. Market quotes may be delayed, adjusted and incomplete, and they are not an execution feed.
-
-## Important limitations
-A positive historical, walk-forward or parameter-stability result does not establish that the strategy will be profitable live. Stability analysis helps identify fragile parameter choices, but it does not remove market-regime risk, data-quality problems, liquidity constraints, survivorship bias, currency effects, execution uncertainty or model-selection bias.
-
-## Next phase
-1. Review the actual Phase 2C out-of-sample and Phase 2D stability results together.
-2. Reject parameter regions that only work at isolated points.
-3. Add a broker sandbox/paper-trading adapter for continuous forward testing.
-4. Run forward paper trading for a meaningful period before considering live capital.
-5. Only after successful forward testing, consider an explicitly enabled live-trading mode.
+## Phase 3 next deployment step
+Run `forward_paper.py` on a persistent worker with durable state storage and a controlled polling schedule. After a meaningful forward-paper observation period, a broker-specific **paper-account adapter** can replace the local simulated-fill layer while keeping live trading disabled.
 
 ## Secrets
-Never commit API keys. A future broker integration must use environment variables or the deployment platform's secret store.
+Never commit API keys or account credentials. Future broker connections must use environment variables or the deployment platform's secret store.
