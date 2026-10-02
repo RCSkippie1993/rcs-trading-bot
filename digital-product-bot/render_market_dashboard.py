@@ -60,8 +60,14 @@ def run_market_scan(
         float(config.get("duplicate_similarity_threshold", 0.78)),
     )
 
+    research_pool = phase2.select_research_candidates(
+        clustered,
+        research_limit,
+        int(config.get("craft_research_quota", 10)),
+    )
+
     decisions: list[phase2.Decision] = []
-    for opportunity in clustered[:research_limit]:
+    for opportunity in research_pool:
         evidence = researched_market(opportunity.phrase, config)
         decisions.append(phase2.classify(opportunity, evidence, config))
 
@@ -74,6 +80,7 @@ def run_market_scan(
         "raw_opportunities": len(raw),
         "distinct_families": len(clustered),
         "researched": len(decisions),
+        "craft_research_quota": int(config.get("craft_research_quota", 10)),
         "source_errors": source_errors,
         "decisions": [asdict(d) for d in decisions],
     }
@@ -224,7 +231,8 @@ r3[1].metric("REJECT", reject_count)
 st.markdown(
     f'<div class="market-note"><b>Last scan:</b> {report["run_at_utc"]} &nbsp; '
     f'<b>Universe:</b> {report["seed_markets"]} seed markets &nbsp; '
-    f'<b>Deep research:</b> {report["researched"]} distinct opportunities.</div>',
+    f'<b>Deep research:</b> {report["researched"]} distinct opportunities &nbsp; '
+    f'<b>Craft slots reserved:</b> {report.get("craft_research_quota", 0)}.</div>',
     unsafe_allow_html=True,
 )
 
