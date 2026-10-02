@@ -95,7 +95,7 @@ def finalise(decision: phase2.Decision, output_root: Path) -> tuple[Path, Path, 
         "approved_by": os.environ.get("GITHUB_ACTOR", "repository-owner"),
         "approved_at": datetime.now(timezone.utc).isoformat(),
         "publishing_enabled": False,
-        "phase3_version": "3.5",
+        "phase3_version": "3.6",
     })
     status_path.write_text(json.dumps(status, indent=2), encoding="utf-8")
 
@@ -167,7 +167,7 @@ def main() -> int:
         post_comment(
             repo,
             issue_number,
-            f"Approved and upgraded `{slug}`. Phase 3.5 generated **7 marketplace images**, improved listing copy, "
+            f"Approved and upgraded `{slug}`. Phase 3.6 generated **7 marketplace images**, improved listing copy, "
             f"and pricing guidance (floor **USD {pricing['floor_price_usd']:.2f}**, recommended **USD {pricing['recommended_price_usd']:.2f}**, "
             f"premium **USD {pricing['premium_price_usd']:.2f}**). All offline readiness checks passed. "
             "It remains **APPROVED_NOT_PUBLISHED**.",
