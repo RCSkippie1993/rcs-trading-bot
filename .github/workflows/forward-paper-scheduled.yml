@@ -3,9 +3,9 @@ name: Phase 3 Scheduled Forward Paper
 on:
   workflow_dispatch:
   schedule:
-    # 5 minutes after each 15-minute boundary during the core JSE weekday window.
+    # 7 minutes after each 15-minute boundary during the core JSE weekday window.
     # GitHub cron is UTC; South Africa is UTC+2 year-round.
-    - cron: "5,20,35,50 7-15 * * 1-5"
+    - cron: "7,22,37,52 7-15 * * 1-5"
 
 permissions:
   contents: write
