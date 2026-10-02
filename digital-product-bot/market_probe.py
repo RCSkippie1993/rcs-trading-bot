@@ -50,6 +50,19 @@ def _ddg_search(session: requests.Session, phrase: str, domain: str) -> tuple[se
     return links, page
 
 
+def _bing_search(session: requests.Session, phrase: str, domain: str) -> tuple[set[str], str]:
+    query = f"site:{domain} {phrase}"
+    response = session.get(
+        "https://www.bing.com/search",
+        params={"q": query, "count": 20, "setlang": "en"},
+        timeout=15,
+    )
+    response.raise_for_status()
+    page = response.text
+    links = {link for link in _hrefs(page) if domain.lower() in link.lower()}
+    return links, page
+
+
 def _etsy_direct(session: requests.Session, phrase: str) -> tuple[set[str], str]:
     response = session.get(
         "https://www.etsy.com/search",
@@ -109,6 +122,13 @@ def research_market_data(phrase: str, config: dict) -> dict:
         prices.extend(_usd_prices(page))
     except Exception as exc:
         errors.append(f"Etsy indexed search failed: {exc}")
+    try:
+        queries.append(f"Bing: site:etsy.com/listing {phrase}")
+        search_links, page = _bing_search(session, phrase, "etsy.com/listing")
+        etsy_links |= search_links
+        prices.extend(_usd_prices(page))
+    except Exception as exc:
+        errors.append(f"Etsy Bing search failed: {exc}")
     hits["etsy"] = min(40, len(etsy_links))
     time.sleep(float(config.get("market_research_delay_seconds", 0.25)))
 
@@ -130,6 +150,13 @@ def research_market_data(phrase: str, config: dict) -> dict:
         prices.extend(_usd_prices(page))
     except Exception as exc:
         errors.append(f"Gumroad indexed search failed: {exc}")
+    try:
+        queries.append(f"Bing: site:gumroad.com {phrase}")
+        search_links, page = _bing_search(session, phrase, "gumroad.com")
+        gumroad_links |= search_links
+        prices.extend(_usd_prices(page))
+    except Exception as exc:
+        errors.append(f"Gumroad Bing search failed: {exc}")
     hits["gumroad"] = min(40, len(gumroad_links))
 
     unique_prices = sorted(set(prices))[:40]
