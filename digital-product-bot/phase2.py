@@ -460,8 +460,11 @@ def main() -> int:
             packages.append(str(Path(enrich_product(decision, products_root, config)).relative_to(run_root)))
             actually_created.append(decision)
         elif factory == "CRAFT" and not craft_built:
-            from craft_factory.build_craft_product import build_product
-            _, zip_path, craft_report = build_product(run_root / "craft-products")
+            from craft_factory.party_box_bundle import build_from_opportunity
+            _, zip_path, craft_report = build_from_opportunity(
+                decision.phrase,
+                run_root / "craft-products",
+            )
             if craft_report.get("ready"):
                 packages.append(str(zip_path.relative_to(run_root)))
                 actually_created.append(decision)
