@@ -3,12 +3,12 @@ from __future__ import annotations
 SEGMENTS = [
     ("Kids Party & Papercraft", [
         "favor box", "favour box", "treat box", "papercraft", "pixel party",
-        "voxel party", "block adventure", "cube party", "loot box",
+        "voxel party", "block adventure", "cube party", "loot box", "gift box",
         "cupcake topper", "party bag topper", "party mask", "party printable"
     ]),
     ("Craft & DIY", [
         "leather pattern", "wallet pattern", "sewing pattern", "woodworking plan",
-        "laser cut", "cricut", "silhouette", "paper model", "stencil", "dxf", "svg cut"
+        "leather", "sewing", "woodworking", "laser cut", "cricut", "silhouette", "paper model", "stencil", "dxf", "svg cut"
     ]),
     ("Business Operations", ["business", "employee", "supplier", "kpi", "meeting", "operating procedure", "client onboarding"]),
     ("Freelance & Agency", ["freelance", "agency", "proposal", "retainer", "creative brief", "service pricing"]),
