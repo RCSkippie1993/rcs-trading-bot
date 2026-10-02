@@ -31,10 +31,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r digital-product-bot/requirements.txt
 
-      - name: Verify Phase 3
+      - name: Verify Phase 3.5
         working-directory: digital-product-bot
         run: |
-          python -m py_compile phase3.py etsy_adapter.py
+          python -m py_compile phase3.py phase3_assets.py phase3_copy.py phase3_checks.py etsy_adapter.py
           python selftest_phase3.py
 
       - name: Process owner command
