@@ -1,4 +1,4 @@
-# Digital Product Scout & Factory — Phase 2
+# Digital Product Scout & Factory — Phase 3.5
 
 This module discovers online demand signals, researches market competition, classifies opportunities, creates review-ready digital products, and stops before publishing.
 
@@ -115,7 +115,7 @@ Each successful scout run creates or refreshes one GitHub issue titled:
 
 The issue shows the current CREATE / WATCH / REJECT queue and accepts owner-only commands:
 
-- `/approve <slug>` — finalise the product, generate four listing images, improve the marketplace copy, and keep it offline.
+- `/approve <slug>` — finalise the product, generate seven branded marketplace images, improve the listing copy and pricing guidance, run readiness checks, and keep it offline.
 - `/reject <slug>` — record a rejection and do not publish anything.
 - `/publish <slug>` — finalise the product and attempt to create an Etsy **draft** listing.
 
@@ -132,7 +132,7 @@ To enable Etsy draft creation, add these GitHub Actions repository secrets:
 - `ETSY_ACCESS_TOKEN`
 - `ETSY_TAXONOMY_ID`
 
-The access token must have Etsy listing write permission. When connected, `/publish` creates a digital-download draft, uploads the generated listing images, and uploads the generated ZIP as the digital product file.
+The access token must have Etsy listing write permission. When connected, `/publish` first runs a publish-readiness gate, then creates a digital-download draft, uploads the seven generated listing images, and uploads the generated ZIP as the digital product file.
 
 ### Phase 3 status model
 
@@ -140,3 +140,25 @@ The access token must have Etsy listing write permission. When connected, `/publ
 - `APPROVED_NOT_PUBLISHED` — owner approved; marketplace-quality package generated; still offline.
 - `ETSY_DRAFT_CREATED` — Etsy draft created with assets uploaded; still not activated.
 
+
+
+### Phase 3.5 marketplace upgrade
+
+Approved products now pass through four dedicated components:
+
+- `brand_config.json` — central brand name, palette, badges and image dimensions.
+- `phase3_assets.py` — generates seven coordinated marketplace images, including a laptop spreadsheet mock-up and inside-view graphic.
+- `phase3_copy.py` — generates marketplace-oriented title, description, Etsy tags and floor/recommended/premium price guidance.
+- `phase3_checks.py` — blocks publishing unless the delivery ZIP, workbook, CSV, guide, seven images, title, description, tags, price and approval status all pass validation.
+
+The seven-image set is:
+
+1. hero / laptop mock-up
+2. what's included
+3. inside spreadsheet view
+4. feature overview
+5. how it works
+6. who it is for
+7. important purchase notes
+
+`/approve` runs the complete offline quality gate. `/publish` runs it again and additionally checks the Etsy connection before any API request is sent.
