@@ -128,7 +128,24 @@
     "worksheet",
     "notion",
     "excel",
-    "google sheets"
+    "google sheets",
+    "printable",
+    "papercraft",
+    "favor box",
+    "favour box",
+    "treat box",
+    "party box",
+    "svg",
+    "cut file",
+    "cricut",
+    "silhouette",
+    "pattern",
+    "leather pattern",
+    "sewing pattern",
+    "woodworking plan",
+    "laser cut",
+    "paper model",
+    "party kit"
   ],
   "excluded_terms": [
     "legal advice",
@@ -165,6 +182,18 @@
     "toolkit": [
       15,
       39
+    ],
+    "papercraft": [
+      4,
+      15
+    ],
+    "cut-file": [
+      3,
+      12
+    ],
+    "craft-pattern": [
+      5,
+      20
     ]
   }
 }
