@@ -92,6 +92,33 @@ def cluster_opportunities(opportunities: Sequence[bot.Opportunity], threshold: f
     return sorted(kept, key=lambda x: (x.score, x.signal_count), reverse=True)
 
 
+def select_research_candidates(
+    clustered: Sequence[bot.Opportunity],
+    limit: int,
+    craft_quota: int = 10,
+) -> List[bot.Opportunity]:
+    """Reserve part of deep research for craft markets so office templates cannot dominate the pool."""
+    from market_segments import segment_for_phrase
+
+    craft_segments = {"Kids Party & Papercraft", "Craft & DIY"}
+    craft = [x for x in clustered if segment_for_phrase(x.phrase) in craft_segments]
+    other = [x for x in clustered if segment_for_phrase(x.phrase) not in craft_segments]
+
+    quota = max(0, min(int(craft_quota), int(limit), len(craft)))
+    selected: List[bot.Opportunity] = craft[:quota] + other[: max(0, limit - quota)]
+    seen = {id(x) for x in selected}
+
+    if len(selected) < limit:
+        for candidate in clustered:
+            if id(candidate) not in seen:
+                selected.append(candidate)
+                seen.add(id(candidate))
+            if len(selected) >= limit:
+                break
+
+    return sorted(selected[:limit], key=lambda x: (x.score, x.signal_count), reverse=True)
+
+
 def _extract_redirect_target(href: str) -> str:
     href = html.unescape(href)
     if "uddg=" in href:
@@ -401,13 +428,19 @@ def main() -> int:
     clustered = cluster_opportunities(raw, float(config.get("duplicate_similarity_threshold", 0.78)))
     research_limit = int(config.get("phase2_research_candidates", 12))
 
+    research_pool = select_research_candidates(
+        clustered,
+        research_limit,
+        int(config.get("craft_research_quota", 10)),
+    )
+
     decisions: List[Decision] = []
-    for opportunity in clustered[:research_limit]:
+    for opportunity in research_pool:
         evidence = research_market(opportunity.phrase, config)
         decisions.append(classify(opportunity, evidence, config))
 
     decisions.sort(key=lambda d: d.commercial_score, reverse=True)
-    from product_format import factory_readiness
+    from product_format import factory_for_phrase, factory_readiness
 
     create_candidates = [d for d in decisions if d.decision == "CREATE"]
     confirmed_create = [
@@ -419,8 +452,22 @@ def main() -> int:
     selected = factory_ready[:max_products]
 
     packages: List[str] = []
+    actually_created: List[Decision] = []
+    craft_built = False
     for decision in selected:
-        packages.append(str(Path(enrich_product(decision, products_root, config)).relative_to(run_root)))
+        factory = factory_for_phrase(decision.phrase)
+        if factory == "BUSINESS":
+            packages.append(str(Path(enrich_product(decision, products_root, config)).relative_to(run_root)))
+            actually_created.append(decision)
+        elif factory == "CRAFT" and not craft_built:
+            from craft_factory.build_craft_product import build_product
+            _, zip_path, craft_report = build_product(run_root / "craft-products")
+            if craft_report.get("ready"):
+                packages.append(str(zip_path.relative_to(run_root)))
+                actually_created.append(decision)
+                craft_built = True
+
+    selected = actually_created
 
     write_review_queue(run_root / "review_queue.csv", decisions)
     report = {
