@@ -38,7 +38,22 @@ class Opportunity:
 
 def load_config() -> dict:
     with CONFIG_PATH.open("r", encoding="utf-8") as f:
-        return json.load(f)
+        config = json.load(f)
+
+    craft_seed_path = BASE_DIR / "craft_factory" / "craft_market_seeds.json"
+    if craft_seed_path.exists():
+        try:
+            craft_payload = json.loads(craft_seed_path.read_text(encoding="utf-8"))
+            extra_seeds = []
+            for values in craft_payload.values():
+                if isinstance(values, list):
+                    extra_seeds.extend(str(v) for v in values)
+            config["seed_markets"] = list(dict.fromkeys(config.get("seed_markets", []) + extra_seeds))
+        except Exception:
+            # Discovery should continue even if optional craft seed configuration is malformed.
+            pass
+
+    return config
 
 
 def clean_phrase(text: str) -> str:
@@ -67,7 +82,7 @@ def google_suggestions(session: requests.Session, query: str, limit: int) -> Lis
 def reddit_titles(session: requests.Session, community: str, limit: int) -> List[str]:
     url = f"https://www.reddit.com/r/{quote_plus(community)}/search.json"
     params = {
-        "q": "template OR spreadsheet OR tracker OR planner OR checklist",
+        "q": "template OR spreadsheet OR tracker OR planner OR checklist OR printable OR papercraft OR svg OR pattern OR favor box",
         "restrict_sr": "on",
         "sort": "new",
         "t": "month",
