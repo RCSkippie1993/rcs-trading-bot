@@ -159,6 +159,10 @@ def score_phrase(phrase: str, counter: Counter, config: dict) -> Opportunity | N
     if any(term in p for term in excluded):
         return None
 
+    non_product_intent = [term.lower() for term in config.get("non_product_intent_terms", [])]
+    if any(term in p for term in non_product_intent):
+        return None
+
     intent_terms = [term.lower() for term in config.get("commercial_intent_terms", [])]
     intent_hits = sum(1 for term in intent_terms if term in p)
     words = [w for w in re.split(r"\s+", p) if w]
