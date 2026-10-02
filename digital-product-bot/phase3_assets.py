@@ -184,11 +184,23 @@ def create_listing_images(folder: Path, decision, listing: dict, brand: dict | N
     # 1. Hero with laptop mock-up.
     img, draw = _canvas(brand)
     _brand_header(draw, brand, "Editable")
-    _wrapped(draw, title, 100, 185, 700, _font(66, bold=True), primary, gap=10, max_lines=4)
-    draw.text((105, 480), "A practical digital system you can edit and reuse.", font=body, fill=primary)
+    title_bottom = _wrapped(draw, title, 100, 185, 700, _font(66, bold=True), primary, gap=10, max_lines=4)
+    subtitle_y = max(455, title_bottom + 24)
+    subtitle_bottom = _wrapped(
+        draw,
+        "A practical digital system you can edit and reuse.",
+        105,
+        subtitle_y,
+        610,
+        body,
+        primary,
+        gap=7,
+        max_lines=2,
+    )
+    badge_y = min(625, subtitle_bottom + 22)
     x = 105
     for badge in brand.get("badges", []):
-        x = _badge(draw, x, 545, badge, brand) + 18
+        x = _badge(draw, x, badge_y, badge, brand) + 18
     _laptop_mockup(draw, 1150, 255, 660, headers, brand)
     draw.rounded_rectangle((100, 720, 780, 1040), radius=30, fill=surface)
     draw.text((140, 765), "INSTANT DIGITAL DOWNLOAD", font=_font(29, bold=True), fill=accent)
