@@ -59,11 +59,12 @@ def test_final_assets():
         assert 1 <= len(marketplace["etsy_tags"]) <= 13
         assert all(len(tag) <= 20 for tag in marketplace["etsy_tags"])
         assert len(marketplace["title"]) <= 140
+        assert marketplace["display_name"] == "Small Business Project Tracker Spreadsheet – Editable Template"
 
         status = json.loads((folder / "status.json").read_text(encoding="utf-8"))
         assert status["status"] == "APPROVED_NOT_PUBLISHED"
         assert status["publishing_enabled"] is False
-        assert status["phase3_version"] == "3.5"
+        assert status["phase3_version"] == "3.6"
 
         assert readiness["ready"] is True
         assert all(item["passed"] for item in readiness["checks"])
@@ -83,4 +84,6 @@ if __name__ == "__main__":
     test_queue_decode()
     test_final_assets()
     test_readiness_blocks_missing_asset()
-    print("phase3.5 self-test passed")
+    assert __import__("phase3_copy").human_product_name("social media content calendar template excel") == "Social Media Content Calendar – Excel Template"
+    assert __import__("phase3_copy").human_product_name("content planner template google sheets") == "Content Planner – Google Sheets Template"
+    print("phase3.6 self-test passed")
