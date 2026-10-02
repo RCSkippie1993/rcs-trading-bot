@@ -15,6 +15,8 @@ import phase2
 import phase3_assets
 import phase3_checks
 import phase3_copy
+import product_format
+from craft_factory.party_box_bundle import build_from_opportunity
 
 MARKER_RE = re.compile(r"<!--\s*DIGITAL_PRODUCT_QUEUE:([A-Za-z0-9_=-]+)\s*-->")
 COMMAND_RE = re.compile(r"^\s*/(approve|reject|publish)\s+([a-z0-9-]+)\s*$", re.I)
@@ -74,12 +76,70 @@ def finalise(decision: phase2.Decision, output_root: Path) -> tuple[Path, Path, 
     product_root = output_root / "approved-products"
     product_root.mkdir(parents=True, exist_ok=True)
 
+    factory = product_format.factory_for_phrase(decision.phrase)
+
+    if factory == "CRAFT":
+        folder, zip_path, craft_report = build_from_opportunity(decision.phrase, product_root)
+        marketplace_path = folder / "marketplace-listing.json"
+        marketplace = json.loads(marketplace_path.read_text(encoding="utf-8"))
+
+        band = config.get("price_bands_usd", {}).get(decision.kind, [7, 15])
+        if isinstance(band, list) and len(band) >= 2:
+            base_price = (float(band[0]) + float(band[1])) / 2
+        else:
+            base_price = 9.99
+
+        prices = phase3_copy.pricing(
+            base_price,
+            decision.market_evidence.median_price_usd,
+            decision.commercial_score,
+        )
+
+        marketplace.update({
+            "brand_name": brand["brand_name"],
+            "display_name": phase3_copy.human_product_name(decision.phrase),
+            "price_usd": prices["recommended_price_usd"],
+            "pricing": prices,
+            "etsy_tags": phase3_copy.etsy_tags(decision.phrase, decision.kind),
+            "type": "download",
+            "quantity": 999,
+            "who_made": "i_did",
+            "when_made": "2020_2026",
+            "commercial_score": decision.commercial_score,
+            "source_phrase": decision.phrase,
+            "approval_status": "APPROVED_NOT_PUBLISHED",
+            "factory": "CRAFT",
+        })
+        marketplace["listing_images"] = [
+            str(path.relative_to(folder))
+            for path in sorted((folder / "Listing-Images").glob("listing-image-*.png"))
+        ]
+        marketplace_path.write_text(json.dumps(marketplace, indent=2), encoding="utf-8")
+
+        status_path = folder / "status.json"
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+        status.update({
+            "status": "APPROVED_NOT_PUBLISHED",
+            "approved_by": os.environ.get("GITHUB_ACTOR", "repository-owner"),
+            "approved_at": datetime.now(timezone.utc).isoformat(),
+            "publishing_enabled": False,
+            "phase3_version": "3.7-craft",
+        })
+        status_path.write_text(json.dumps(status, indent=2), encoding="utf-8")
+
+        readiness = phase3_checks.validate_craft(folder, zip_path, marketplace, require_etsy=False)
+        marketplace["publish_readiness"] = readiness["ready"]
+        marketplace_path.write_text(json.dumps(marketplace, indent=2), encoding="utf-8")
+        phase2._rewrite_zip(folder, zip_path)
+        return folder, zip_path, marketplace, readiness
+
     zip_path = Path(phase2.enrich_product(decision, product_root, config))
     folder = product_root / bot.slugify(decision.phrase)
     listing_path = folder / "listing.json"
     base_listing = json.loads(listing_path.read_text(encoding="utf-8"))
 
     marketplace = phase3_copy.build_listing(decision, base_listing, brand)
+    marketplace["factory"] = factory
 
     for old in folder.glob("listing-image-*.png"):
         old.unlink()
@@ -164,17 +224,29 @@ def main() -> int:
 
     if action == "approve":
         pricing = marketplace["pricing"]
+        factory = marketplace.get("factory", product_format.factory_for_phrase(decision.phrase))
+        if factory == "CRAFT":
+            approval_detail = (
+                "Craft Factory approval preserved the print-ready **PDF + SVG** product files, "
+                "assembly guide and **7 marketplace images**"
+            )
+        else:
+            approval_detail = "Phase 3.6 generated **7 marketplace images** and improved listing copy"
+
         post_comment(
             repo,
             issue_number,
-            f"Approved and upgraded `{slug}`. Phase 3.6 generated **7 marketplace images**, improved listing copy, "
-            f"and pricing guidance (floor **USD {pricing['floor_price_usd']:.2f}**, recommended **USD {pricing['recommended_price_usd']:.2f}**, "
+            f"Approved and finalised `{slug}`. {approval_detail}, with pricing guidance "
+            f"(floor **USD {pricing['floor_price_usd']:.2f}**, recommended **USD {pricing['recommended_price_usd']:.2f}**, "
             f"premium **USD {pricing['premium_price_usd']:.2f}**). All offline readiness checks passed. "
             "It remains **APPROVED_NOT_PUBLISHED**.",
         )
         return 0
 
-    publish_readiness = phase3_checks.validate(folder, delivery_zip, marketplace, require_etsy=True)
+    if marketplace.get("factory") == "CRAFT":
+        publish_readiness = phase3_checks.validate_craft(folder, delivery_zip, marketplace, require_etsy=True)
+    else:
+        publish_readiness = phase3_checks.validate(folder, delivery_zip, marketplace, require_etsy=True)
     phase2._rewrite_zip(folder, delivery_zip)
     if not publish_readiness["ready"]:
         summary = phase3_checks.failure_summary(publish_readiness)
