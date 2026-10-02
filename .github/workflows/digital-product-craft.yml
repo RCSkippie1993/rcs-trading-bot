@@ -6,6 +6,7 @@ on:
     paths:
       - "digital-product-bot/craft_factory/**"
       - "digital-product-bot/selftest_craft_factory.py"
+      - "digital-product-bot/selftest_craft_phase2.py"
       - "digital-product-bot/product_format.py"
       - "digital-product-bot/requirements.txt"
       - ".github/workflows/digital-product-craft.yml"
@@ -33,20 +34,24 @@ jobs:
         run: pip install -r digital-product-bot/requirements.txt
 
       - name: Verify craft factory syntax
-        run: python -m py_compile digital-product-bot/craft_factory/*.py digital-product-bot/selftest_craft_factory.py
+        run: python -m py_compile digital-product-bot/craft_factory/*.py digital-product-bot/selftest_craft_factory.py digital-product-bot/selftest_craft_phase2.py
 
       - name: Run craft factory self-test
         working-directory: digital-product-bot
         run: python selftest_craft_factory.py
 
-      - name: Build Block Adventure review product
+      - name: Run Craft Factory Phase 2 self-test
         working-directory: digital-product-bot
-        run: python -m craft_factory.build_craft_product --output-dir craft-output
+        run: python selftest_craft_phase2.py
+
+      - name: Build five-shape favor-box review product
+        working-directory: digital-product-bot
+        run: python -m craft_factory.party_box_bundle --phrase "printable favor box templates" --output-dir craft-phase2-output
 
       - name: Upload craft review package
         uses: actions/upload-artifact@v4
         with:
-          name: block-adventure-party-favor-box-${{ github.run_number }}
-          path: digital-product-bot/craft-output/
+          name: favor-box-shape-bundle-${{ github.run_number }}
+          path: digital-product-bot/craft-phase2-output/
           if-no-files-found: error
           retention-days: 30
