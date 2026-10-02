@@ -8,6 +8,7 @@ from typing import Dict
 from PIL import Image, ImageDraw
 
 from .theme_engine import Theme
+from .papercraft_geometry import PapercraftNet
 
 
 def _seed(theme: str, face: str) -> int:
@@ -84,6 +85,16 @@ def generate_face_art(theme: Theme, size_px: int = 720) -> Dict[str, Image.Image
     for face in ["top", "left", "front", "right", "bottom", "back"]:
         faces[face] = _pixel_grid(theme, face, size_px)
     return faces
+
+
+def generate_art_for_net(theme: Theme, net: PapercraftNet, dpi: int = 300) -> Dict[str, Image.Image]:
+    artwork: Dict[str, Image.Image] = {}
+    for name, face in net.faces.items():
+        width_px = max(240, round(face.w / 25.4 * dpi))
+        height_px = max(240, round(face.h / 25.4 * dpi))
+        base = _pixel_grid(theme, name, max(width_px, height_px))
+        artwork[name] = base.resize((width_px, height_px), Image.Resampling.NEAREST)
+    return artwork
 
 
 def save_face_art(face_art: Dict[str, Image.Image], folder: Path, prefix: str) -> Dict[str, Path]:
