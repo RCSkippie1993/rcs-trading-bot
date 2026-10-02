@@ -199,7 +199,7 @@ def classify(opportunity: bot.Opportunity, evidence: MarketEvidence, config: dic
     # If marketplace evidence is unavailable, do not punish the opportunity for a
     # technical research gap. Use the demand/build score as the candidate score,
     # and surface the lack of market confirmation separately.
-    commercial_score = computed_commercial if has_market_evidence else opportunity.score
+    commercial_score = max(opportunity.score, computed_commercial) if has_market_evidence else opportunity.score
 
     create_threshold = int(config.get("create_threshold", 70))
     watch_threshold = int(config.get("watch_threshold", 58))
