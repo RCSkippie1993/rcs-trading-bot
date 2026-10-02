@@ -28,6 +28,30 @@ def main():
     assert segment_for_phrase("wedding budget spreadsheet") == "Events & Weddings"
     assert segment_for_phrase("job application tracker") == "Career & Job Search"
     assert segment_for_phrase("pet care planner") == "Pets"
+    assert segment_for_phrase("printable gift box template pdf") == "Kids Party & Papercraft"
+    assert segment_for_phrase("leather dice bag pattern printable") == "Craft & DIY"
+
+    assert bot.infer_kind("printable gift box template pdf") == "papercraft"
+    assert bot.infer_kind("leather dice bag pattern printable") == "craft-pattern"
+
+    free_item = bot.score_phrase(
+        "printable favor box templates free download",
+        Counter({"google_suggest": 1}),
+        config,
+    )
+    paid_item = bot.score_phrase(
+        "printable favor box templates",
+        Counter({"google_suggest": 1}),
+        config,
+    )
+    assert free_item is not None and paid_item is not None
+    assert paid_item.score > free_item.score
+
+    assert bot.score_phrase(
+        "sewing pattern print shop near me",
+        Counter({"google_suggest": 2}),
+        config,
+    ) is None
 
     print("market radar expansion self-test passed")
 
