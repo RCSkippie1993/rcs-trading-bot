@@ -4,12 +4,12 @@ import json
 from pathlib import Path
 from typing import Iterable
 
-from .papercraft_geometry import CubeNet, fits_paper
+from .papercraft_geometry import PapercraftNet, fits_paper
 
 
 def validate_product(
     root: Path,
-    net: CubeNet,
+    net: PapercraftNet,
     paper_sizes: dict,
     themes: Iterable[str],
     prohibited_terms: Iterable[str],
