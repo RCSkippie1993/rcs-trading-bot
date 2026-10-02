@@ -162,3 +162,14 @@ The seven-image set is:
 7. important purchase notes
 
 `/approve` runs the complete offline quality gate. `/publish` runs it again and additionally checks the Etsy connection before any API request is sent.
+
+
+### Phase 3.6 naming polish
+
+Customer-facing product names are normalised independently from the raw demand-search phrase. Examples:
+
+- `social media content calendar template excel` → **Social Media Content Calendar – Excel Template**
+- `content planner template google sheets` → **Content Planner – Google Sheets Template**
+- generic template phrases → **[Product Name] – Editable Template**
+
+The normalised name is used consistently in the hero artwork, marketplace title and listing hook, while the original search phrase remains preserved in the research metadata.
