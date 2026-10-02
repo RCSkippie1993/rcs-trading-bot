@@ -1,0 +1,23 @@
+{
+  "brand_name": "Create Selling Bot",
+  "tagline": "Smart digital tools for practical work",
+  "palette": {
+    "background": "#F6F2EA",
+    "surface": "#FFFFFF",
+    "primary": "#182033",
+    "accent": "#D89A5B",
+    "muted": "#E8E0D3",
+    "soft": "#EEF1F5"
+  },
+  "badges": [
+    "Editable",
+    "Instant Download",
+    "Easy to Use"
+  ],
+  "style": {
+    "corner_radius": 34,
+    "border_width": 3,
+    "image_width": 1600,
+    "image_height": 1200
+  }
+}
