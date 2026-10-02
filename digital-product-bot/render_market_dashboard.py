@@ -238,7 +238,13 @@ with tab2:
             .rename("Count")
             .reset_index()
         )
-        st.bar_chart(decision_summary.set_index("Decision"))
+
+        st.markdown("#### Decision mix")
+        cols = st.columns(3)
+        decision_order = ["CREATE", "WATCH", "REJECT"]
+        counts = dict(zip(decision_summary["Decision"], decision_summary["Count"]))
+        for col, label in zip(cols, decision_order):
+            col.metric(label, int(counts.get(label, 0)))
 
 with tab3:
     st.subheader("Marketplace evidence")
