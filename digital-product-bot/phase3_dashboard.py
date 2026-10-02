@@ -58,9 +58,31 @@ def dashboard_body(report: dict, rows: list[dict]) -> str:
     created = report.get("decision_counts", {}).get("CREATE", 0)
     watch = report.get("decision_counts", {}).get("WATCH", 0)
     rejected = report.get("decision_counts", {}).get("REJECT", 0)
+    production_batch = report.get("production_batch", [])
+
     lines += [
         "",
-        f"Queue summary: **{created} CREATE**, **{watch} WATCH**, **{rejected} REJECT**.",
+        "## Produced for review",
+        "",
+    ]
+
+    if production_batch:
+        lines += [
+            "| Product | Factory | Family | Commercial | Status |",
+            "|---|---|---|---:|---|",
+        ]
+        for item in production_batch:
+            lines.append(
+                f"| {item['phrase'].replace('|','/')} | {item['factory']} | {item['family']} | "
+                f"{item['commercial_score']} | **{item['status']}** |"
+            )
+    else:
+        lines.append("No products were produced in this run.")
+
+    lines += [
+        "",
+        f"Queue summary: **{created} CREATE**, **{watch} WATCH**, **{rejected} REJECT**. "
+        f"**{len(production_batch)}** products were manufactured for review.",
         "",
         "## Commands",
         "",
