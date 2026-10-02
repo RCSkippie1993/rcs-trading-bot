@@ -37,6 +37,17 @@ def main():
     assert decision.decision == "CREATE", decision
     assert decision.commercial_score >= config["create_threshold"]
 
+    weak_evidence = phase2.MarketEvidence(
+        platform_hits={"etsy": 0, "gumroad": 0},
+        sampled_prices_usd=[],
+        median_price_usd=None,
+        evidence_queries=["test-no-market-evidence"],
+        errors=[],
+    )
+    weak_decision = phase2.classify(a, weak_evidence, config)
+    assert weak_decision.decision == "WATCH", weak_decision
+    assert any("blocked" in reason.lower() for reason in weak_decision.reasons)
+
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         package = Path(phase2.enrich_product(decision, root, config))
