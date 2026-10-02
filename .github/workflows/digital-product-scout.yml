@@ -34,7 +34,7 @@ jobs:
         run: pip install -r digital-product-bot/requirements.txt
 
       - name: Verify Python syntax
-        run: python -m py_compile digital-product-bot/bot.py digital-product-bot/phase2.py digital-product-bot/market_probe.py digital-product-bot/market_segments.py digital-product-bot/product_format.py digital-product-bot/render_market_dashboard.py digital-product-bot/craft_factory/craft_router.py digital-product-bot/craft_factory/papercraft_geometry.py digital-product-bot/craft_factory/theme_engine.py digital-product-bot/craft_factory/artwork_engine.py digital-product-bot/craft_factory/svg_export.py digital-product-bot/craft_factory/pdf_export.py digital-product-bot/craft_factory/assembly_guide.py digital-product-bot/craft_factory/craft_quality.py digital-product-bot/craft_factory/craft_listing_assets.py digital-product-bot/craft_factory/build_craft_product.py digital-product-bot/run_phase2.py digital-product-bot/phase3_dashboard.py digital-product-bot/phase3.py digital-product-bot/phase3_assets.py digital-product-bot/phase3_copy.py digital-product-bot/phase3_checks.py digital-product-bot/etsy_adapter.py digital-product-bot/selftest.py digital-product-bot/selftest_phase2.py digital-product-bot/selftest_phase3.py digital-product-bot/selftest_market_radar.py digital-product-bot/selftest_product_format.py digital-product-bot/selftest_craft_factory.py
+        run: python -m py_compile digital-product-bot/bot.py digital-product-bot/phase2.py digital-product-bot/market_probe.py digital-product-bot/market_segments.py digital-product-bot/product_format.py digital-product-bot/render_market_dashboard.py digital-product-bot/craft_factory/craft_router.py digital-product-bot/craft_factory/box_shape_router.py digital-product-bot/craft_factory/papercraft_geometry.py digital-product-bot/craft_factory/theme_engine.py digital-product-bot/craft_factory/party_theme_engine.py digital-product-bot/craft_factory/artwork_engine.py digital-product-bot/craft_factory/svg_export.py digital-product-bot/craft_factory/pdf_export.py digital-product-bot/craft_factory/assembly_guide.py digital-product-bot/craft_factory/craft_quality.py digital-product-bot/craft_factory/craft_listing_assets.py digital-product-bot/craft_factory/build_craft_product.py digital-product-bot/craft_factory/party_bundle_listing_assets.py digital-product-bot/craft_factory/party_bundle_guide.py digital-product-bot/craft_factory/party_bundle_quality.py digital-product-bot/craft_factory/party_box_bundle.py digital-product-bot/run_phase2.py digital-product-bot/phase3_dashboard.py digital-product-bot/phase3.py digital-product-bot/phase3_assets.py digital-product-bot/phase3_copy.py digital-product-bot/phase3_checks.py digital-product-bot/etsy_adapter.py digital-product-bot/selftest.py digital-product-bot/selftest_phase2.py digital-product-bot/selftest_phase3.py digital-product-bot/selftest_market_radar.py digital-product-bot/selftest_product_format.py digital-product-bot/selftest_craft_factory.py digital-product-bot/selftest_craft_phase2.py
 
       - name: Run product-factory self-test
         working-directory: digital-product-bot
@@ -59,6 +59,10 @@ jobs:
       - name: Run Craft Factory self-test
         working-directory: digital-product-bot
         run: python selftest_craft_factory.py
+
+      - name: Run Craft Factory Phase 2 self-test
+        working-directory: digital-product-bot
+        run: python selftest_craft_phase2.py
 
       - name: Research, rank and create approved-quality drafts
         env:
