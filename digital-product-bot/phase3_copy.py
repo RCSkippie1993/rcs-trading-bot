@@ -5,6 +5,27 @@ import re
 import bot
 
 
+def human_product_name(phrase: str) -> str:
+    """Turn a search phrase into a natural customer-facing product name."""
+    raw = re.sub(r"\s+", " ", phrase.lower()).strip()
+    is_google_sheets = "google sheets" in raw
+    is_excel = bool(re.search(r"\bexcel\b", raw))
+
+    core = raw
+    core = re.sub(r"\bgoogle sheets\b", " ", core)
+    core = re.sub(r"\bexcel\b", " ", core)
+    core = re.sub(r"\bfree\b", " ", core)
+    core = re.sub(r"\btemplate\b", " ", core)
+    core = re.sub(r"\s+", " ", core).strip(" -")
+
+    base = bot.title_case_phrase(core or phrase)
+    if is_google_sheets:
+        return f"{base} – Google Sheets Template"
+    if is_excel:
+        return f"{base} – Excel Template"
+    return f"{base} – Editable Template"
+
+
 def _clean_tag(value: str) -> str:
     clean = re.sub(r"[^a-z0-9 ]+", "", value.lower()).strip()
     clean = re.sub(r"\s+", " ", clean)
@@ -61,10 +82,10 @@ def pricing(base_price: float, market_median: float | None, commercial_score: in
 
 
 def build_listing(decision, base_listing: dict, brand: dict) -> dict:
-    title_core = bot.title_case_phrase(decision.phrase)
-    title = f"{title_core} | Editable Excel Template | Digital Download"
+    display_name = human_product_name(decision.phrase)
+    title = f"{display_name} | Digital Download"
     if len(title) > 140:
-        title = f"{title_core} | Editable Digital Template"[:140]
+        title = display_name[:140]
 
     raw_price = (
         base_listing.get("suggested_price", {}).get("phase2_usd")
@@ -77,7 +98,7 @@ def build_listing(decision, base_listing: dict, brand: dict) -> dict:
         decision.commercial_score,
     )
 
-    hook = f"Turn {decision.phrase} into a simple, repeatable workflow instead of rebuilding the same admin from scratch."
+    hook = f"Use the {display_name} to turn repeated admin into a simple, repeatable workflow instead of rebuilding the same system from scratch."
     included = [
         "Editable Excel workbook",
         "Starter CSV",
@@ -102,6 +123,7 @@ def build_listing(decision, base_listing: dict, brand: dict) -> dict:
 
     return {
         "brand_name": brand["brand_name"],
+        "display_name": display_name,
         "title": title,
         "short_hook": hook,
         "description": description,
