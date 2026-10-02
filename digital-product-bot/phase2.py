@@ -194,13 +194,16 @@ def classify(opportunity: bot.Opportunity, evidence: MarketEvidence, config: dic
     phrase_tokens = clean_tokens(opportunity.phrase)
     niche_points = min(10, max(3, len(phrase_tokens) * 2))
     base_points = round(opportunity.score * 0.62)
-    commercial_score = min(100, base_points + competition_points + price_points + niche_points)
+    computed_commercial = min(100, base_points + competition_points + price_points + niche_points)
+    has_market_evidence = total_hits > 0 or median is not None
+    # If marketplace evidence is unavailable, do not punish the opportunity for a
+    # technical research gap. Use the demand/build score as the candidate score,
+    # and surface the lack of market confirmation separately.
+    commercial_score = computed_commercial if has_market_evidence else opportunity.score
 
     create_threshold = int(config.get("create_threshold", 70))
     watch_threshold = int(config.get("watch_threshold", 58))
     minimum_base = int(config.get("minimum_score", 62))
-
-    has_market_evidence = total_hits > 0 or median is not None
 
     if commercial_score >= create_threshold and opportunity.score >= minimum_base:
         decision = "CREATE"
@@ -214,7 +217,11 @@ def classify(opportunity: bot.Opportunity, evidence: MarketEvidence, config: dic
         competition_note,
         price_note,
         f"Commercial specificity contribution: {niche_points}/10.",
-        "Marketplace evidence confirmed." if has_market_evidence else "Marketplace evidence remains unverified; treat the opportunity as a candidate, not a validated market.",
+        (
+            "Marketplace evidence confirmed; composite commercial score applied."
+            if has_market_evidence
+            else "Marketplace evidence remains unverified; candidate score falls back to demand/build strength."
+        ),
     ]
     return Decision(
         phrase=opportunity.phrase,
