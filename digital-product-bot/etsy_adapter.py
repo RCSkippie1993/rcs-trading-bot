@@ -65,7 +65,17 @@ def create_draft(folder: Path, delivery_zip: Path, listing: dict[str, Any]) -> d
         raise RuntimeError("Etsy did not return a listing_id")
 
     image_ids = []
-    for image_path in sorted(folder.glob("listing-image-*.png")):
+    image_paths = list(folder.glob("listing-image-*.png"))
+    image_paths += list((folder / "Listing-Images").glob("listing-image-*.png"))
+    seen = set()
+    ordered_images = []
+    for image_path in sorted(image_paths):
+        key = str(image_path.resolve())
+        if key not in seen:
+            seen.add(key)
+            ordered_images.append(image_path)
+
+    for image_path in ordered_images:
         with image_path.open("rb") as fh:
             img_response = session.post(
                 f"{base}/shops/{shop_id}/listings/{listing_id}/images",
