@@ -93,8 +93,14 @@ def decision_frame(report: dict) -> pd.DataFrame:
                 "Demand / Build": item["base_score"],
                 "Product": phase3_copy.human_product_name(item["phrase"]),
                 "Segment": segment_for_phrase(item["phrase"]),
+                "Evidence": "CONFIRMED" if market_confirmed else "UNVERIFIED",
                 "Market Confirmed": market_confirmed,
                 "Factory": readiness_label(item["phrase"]),
+                "Auto Build": (
+                    "ELIGIBLE"
+                    if item["decision"] == "CREATE" and market_confirmed and ready
+                    else "HELD"
+                ),
                 "Factory Ready": ready,
                 "Preferred Format": fmt,
                 "Search Phrase": item["phrase"],
@@ -200,9 +206,20 @@ r1[3].metric("Distinct markets", report["distinct_families"])
 
 r2 = st.columns(4)
 r2[0].metric("Researched", report["researched"])
-r2[1].metric("CREATE", create_count)
-r2[2].metric("WATCH", watch_count)
-r2[3].metric("REJECT", reject_count)
+confirmed_create_count = int(
+    ((df["Decision"] == "CREATE") & (df["Market Confirmed"] == True)).sum()
+) if not df.empty else 0
+auto_build_count = int(
+    ((df["Decision"] == "CREATE") & (df["Market Confirmed"] == True) & (df["Factory Ready"] == True)).sum()
+) if not df.empty else 0
+
+r2[1].metric("CREATE candidates", create_count)
+r2[2].metric("Confirmed CREATE", confirmed_create_count)
+r2[3].metric("Auto-build eligible", auto_build_count)
+
+r3 = st.columns(2)
+r3[0].metric("WATCH", watch_count)
+r3[1].metric("REJECT", reject_count)
 
 st.markdown(
     f'<div class="market-note"><b>Last scan:</b> {report["run_at_utc"]} &nbsp; '
@@ -223,7 +240,7 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
 )
 
 with tab1:
-    st.subheader("Top 10 CREATE opportunities")
+    st.subheader("Top 10 CREATE candidates")
     creates = df[df["Decision"] == "CREATE"].sort_values(
         ["Commercial", "Demand / Build"], ascending=False
     ).head(10)
@@ -231,7 +248,7 @@ with tab1:
         creates[
             [
                 "Decision", "Commercial", "Demand / Build", "Product", "Segment",
-                "Market Confirmed", "Factory", "Etsy Proxy", "Gumroad Proxy", "Median Price USD", "Signals"
+                "Evidence", "Factory", "Auto Build", "Etsy Proxy", "Gumroad Proxy", "Median Price USD", "Signals"
             ]
         ] if not creates.empty else creates
     )
@@ -248,7 +265,8 @@ with tab2:
     st.subheader("Emerging opportunities")
     st.caption(
         "WATCH ideas within five points of the current CREATE threshold. "
-        "These are the candidates most likely to move into CREATE if future demand evidence strengthens."
+        "CREATE and market confirmation are separate: an UNVERIFIED CREATE can still be a strong demand candidate, "
+        "but it will not be auto-built until marketplace evidence is confirmed."
     )
     emerging = df[
         (df["Decision"] == "WATCH")
@@ -262,7 +280,7 @@ with tab2:
         emerging[
             [
                 "Decision", "Commercial", "Demand / Build", "Product", "Segment",
-                "Market Confirmed", "Factory", "Etsy Proxy", "Gumroad Proxy", "Median Price USD", "Signals"
+                "Evidence", "Factory", "Auto Build", "Etsy Proxy", "Gumroad Proxy", "Median Price USD", "Signals"
             ]
         ] if not emerging.empty else emerging
     )
@@ -343,8 +361,9 @@ with tab5:
         "Product",
         "Segment",
         "Commercial",
-        "Market Confirmed",
+        "Evidence",
         "Factory",
+        "Auto Build",
         "Etsy Proxy",
         "Gumroad Proxy",
         "Median Price USD",
