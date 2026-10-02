@@ -2,7 +2,7 @@
   "minimum_score": 62,
   "create_threshold": 70,
   "watch_threshold": 58,
-  "max_products_per_run": 3,
+  "max_products_per_run": 5,
   "phase2_research_candidates": 30,
   "duplicate_similarity_threshold": 0.78,
   "market_research_delay_seconds": 0.25,
