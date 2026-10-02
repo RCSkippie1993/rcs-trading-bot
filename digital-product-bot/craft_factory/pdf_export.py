@@ -9,7 +9,7 @@ from reportlab.lib.utils import ImageReader
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
-from .papercraft_geometry import CubeNet
+from .papercraft_geometry import PapercraftNet
 from .theme_engine import Theme
 
 
@@ -22,7 +22,7 @@ def _image_reader(image: Image.Image) -> ImageReader:
 
 def export_print_pdf(
     path: Path,
-    net: CubeNet,
+    net: PapercraftNet,
     face_art: Dict[str, Image.Image],
     theme: Theme,
     paper_size_mm: Tuple[float, float],
@@ -40,9 +40,9 @@ def export_print_pdf(
         c.drawImage(
             _image_reader(face_art[name]),
             (offset_x + face.x) * mm,
-            (page_h_mm - offset_y - face.y - face.size) * mm,
-            width=face.size * mm,
-            height=face.size * mm,
+            (page_h_mm - offset_y - face.y - face.h) * mm,
+            width=face.w * mm,
+            height=face.h * mm,
             preserveAspectRatio=False,
             mask="auto",
         )
@@ -100,7 +100,7 @@ def export_print_pdf(
 
 def render_flat_preview(
     path: Path,
-    net: CubeNet,
+    net: PapercraftNet,
     face_art: Dict[str, Image.Image],
     theme: Theme,
     px_per_mm: int = 5,
@@ -111,7 +111,7 @@ def render_flat_preview(
     draw = ImageDraw.Draw(img)
 
     for name, face in net.faces.items():
-        art = face_art[name].resize((int(face.size * px_per_mm), int(face.size * px_per_mm)))
+        art = face_art[name].resize((int(face.w * px_per_mm), int(face.h * px_per_mm)))
         img.paste(art, (int(face.x * px_per_mm), int(face.y * px_per_mm)))
 
     for tab in net.tabs:
