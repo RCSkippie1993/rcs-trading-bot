@@ -48,7 +48,12 @@ def route_craft_phrase(phrase: str) -> CraftRoute:
             ),
         )
 
-    if any(term in text for term in CRAFT_PATTERN_TERMS):
+    if (
+        any(term in text for term in CRAFT_PATTERN_TERMS)
+        or ("leather" in text and "pattern" in text)
+        or ("sewing" in text and "pattern" in text)
+        or ("woodworking" in text and ("plan" in text or "pattern" in text))
+    ):
         return CraftRoute(
             factory="CRAFT",
             format="CRAFT_PATTERN",
