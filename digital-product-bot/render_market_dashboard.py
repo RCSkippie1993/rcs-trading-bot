@@ -228,9 +228,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
     [
         "Top 10 CREATE",
+        "Craft & Party",
         "Emerging opportunities",
         "Full ranking",
         "Market segments",
@@ -262,6 +263,29 @@ with tab1:
         st.info("No researched opportunity currently clears the CREATE threshold.")
 
 with tab2:
+    st.subheader("Craft & kids-party opportunities")
+    st.caption(
+        "This lane surfaces papercraft, favor boxes, SVG cut files and other DIY-pattern demand separately "
+        "from spreadsheets and office templates."
+    )
+    craft_mask = (
+        df["Segment"].isin(["Kids Party & Papercraft", "Craft & DIY"])
+        | df["Factory"].astype(str).str.contains("CRAFT", na=False)
+    )
+    craft_df = df[craft_mask].sort_values(
+        ["Commercial", "Demand / Build"], ascending=False
+    )
+    opportunity_table(
+        craft_df[
+            [
+                "Decision", "Commercial", "Demand / Build", "Product", "Segment",
+                "Evidence", "Factory", "Auto Build", "Preferred Format",
+                "Etsy Proxy", "Gumroad Proxy", "Signals"
+            ]
+        ] if not craft_df.empty else craft_df
+    )
+
+with tab3:
     st.subheader("Emerging opportunities")
     st.caption(
         "WATCH ideas within five points of the current CREATE threshold. "
@@ -285,7 +309,7 @@ with tab2:
         ] if not emerging.empty else emerging
     )
 
-with tab3:
+with tab4:
     st.subheader("Full researched ranking")
     if df.empty:
         st.warning("No opportunities were returned.")
@@ -306,7 +330,7 @@ with tab3:
             filtered = filtered[filtered["Segment"].isin(segment_filter)]
         opportunity_table(filtered)
 
-with tab4:
+with tab5:
     st.subheader("Where the opportunity pool is clustering")
     if not df.empty:
         segment_summary = (
@@ -350,7 +374,7 @@ with tab4:
         ):
             col.metric(label, value)
 
-with tab5:
+with tab6:
     st.subheader("Marketplace evidence")
     st.caption(
         "Etsy and Gumroad counts are sampled public-search proxies, not complete marketplace inventory counts. "
@@ -371,7 +395,7 @@ with tab5:
     ]
     opportunity_table(df[evidence_cols] if not df.empty else df)
 
-with tab6:
+with tab7:
     st.subheader("Research source health")
     source_errors = report.get("source_errors", [])
     if not source_errors:
