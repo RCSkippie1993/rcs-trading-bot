@@ -196,5 +196,19 @@
       20
     ]
   },
-  "craft_research_quota": 10
+  "craft_research_quota": 10,
+  "non_product_intent_terms": [
+    "near me",
+    "print shop",
+    "printing service",
+    "same day printing",
+    "local printer",
+    "where to print",
+    "print store",
+    "printing near",
+    "shop near me",
+    "store near me",
+    "custom printing service",
+    "printing company"
+  ]
 }
