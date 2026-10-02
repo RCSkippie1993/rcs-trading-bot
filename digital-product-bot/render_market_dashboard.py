@@ -140,11 +140,14 @@ if run_now:
 report = st.session_state["report"]
 
 if not report:
-    st.info(
-        "Select the scan depth in the sidebar and click **Run live market scan**. "
-        "A 12-idea scan normally provides a useful first market view."
-    )
-    st.stop()
+    with st.spinner("Running the first live market scan..."):
+        report = run_market_scan(
+            research_limit,
+            create_threshold,
+            watch_threshold,
+            minimum_score,
+        )
+        st.session_state["report"] = report
 
 df = decision_frame(report)
 create_count = int((df["Decision"] == "CREATE").sum()) if not df.empty else 0
