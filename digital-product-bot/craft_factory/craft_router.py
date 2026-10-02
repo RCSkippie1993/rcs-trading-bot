@@ -27,30 +27,25 @@ CRAFT_PATTERN_TERMS = [
 def route_craft_phrase(phrase: str) -> CraftRoute:
     text = re.sub(r"\s+", " ", phrase.lower()).strip()
 
-    if any(term in text for term in PAPERCRAFT_BOX_TERMS):
-        supported_theme = any(term in text for term in [
-            "pixel", "voxel", "block adventure", "block party", "block-style", "block style"
-        ])
-        if supported_theme:
-            return CraftRoute(
-                factory="CRAFT",
-                format="PAPERCRAFT",
-                ready=True,
-                reason="Block/pixel papercraft box can be built by the current craft geometry and artwork factory.",
-            )
+    if any(term in text for term in PAPERCRAFT_BOX_TERMS) or "gift box" in text:
         return CraftRoute(
             factory="CRAFT",
             format="PAPERCRAFT",
-            ready=False,
-            reason="Box geometry is supported, but this theme still needs its own artwork pack before automatic manufacture.",
+            ready=True,
+            reason="Favor/gift/treat box demand can be built by the multi-shape party box factory with original theme artwork.",
         )
 
     if "svg" in text and any(term in text for term in ["party", "box", "cut file", "template"]):
+        ready = any(term in text for term in ["box", "party", "favor", "favour", "treat", "gift"])
         return CraftRoute(
             factory="CRAFT",
             format="SVG_CUT",
-            ready=False,
-            reason="SVG demand detected; geometry may be supported but theme-specific cut artwork is not yet universally automated.",
+            ready=ready,
+            reason=(
+                "Party-box SVG can be built by the current multi-shape factory."
+                if ready else
+                "SVG demand detected, but this cut-file category still needs a dedicated geometry engine."
+            ),
         )
 
     if any(term in text for term in CRAFT_PATTERN_TERMS):
