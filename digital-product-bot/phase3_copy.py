@@ -8,6 +8,11 @@ import bot
 def human_product_name(phrase: str) -> str:
     """Turn a search phrase into a natural customer-facing product name."""
     raw = re.sub(r"\s+", " ", phrase.lower()).strip()
+
+    from product_format import factory_for_phrase, preferred_format
+
+    factory = factory_for_phrase(raw)
+    fmt = preferred_format(raw)
     is_google_sheets = "google sheets" in raw
     is_excel = bool(re.search(r"\bexcel\b", raw))
 
@@ -20,10 +25,26 @@ def human_product_name(phrase: str) -> str:
     core = re.sub(r"\bword\b", " ", core)
     core = re.sub(r"\bdocx\b", " ", core)
     core = re.sub(r"\btemplate\b", " ", core)
+    core = re.sub(r"\bpdf\b", " ", core)
+    core = re.sub(r"\bsvg\b", " ", core)
+    core = re.sub(r"\bcricut\b", " ", core)
     core = re.sub(r"\s+", " ", core).strip(" -")
 
     base = bot.title_case_phrase(core or phrase)
     is_word = bool(re.search(r"\b(word|docx)\b", raw))
+
+    if factory == "CRAFT":
+        if fmt == "PAPERCRAFT":
+            return f"{base} – PDF & SVG Craft Pattern"
+        if fmt == "SVG_CUT":
+            return f"{base} – SVG Cut File"
+        if "leather" in raw or "sewing" in raw or "pattern" in raw:
+            return f"{base} – Printable PDF Pattern"
+        return f"{base} – Digital Craft Pattern"
+
+    if factory == "PRINTABLE" and "checklist" in raw:
+        return f"{base} – Printable PDF"
+
     if is_google_sheets:
         return f"{base} – Google Sheets Template"
     if is_excel:
