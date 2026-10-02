@@ -11,6 +11,7 @@ import phase2
 import phase3_copy
 from market_probe import research_market_data
 from market_segments import segment_for_phrase
+from product_format import factory_readiness, readiness_label
 
 st.set_page_config(
     page_title="Digital Product Market Radar",
@@ -82,6 +83,9 @@ def decision_frame(report: dict) -> pd.DataFrame:
     rows = []
     for item in report["decisions"]:
         evidence = item["market_evidence"]
+        ready, fmt, readiness_reason = factory_readiness(item["phrase"])
+        total_market_hits = sum(evidence["platform_hits"].values())
+        market_confirmed = total_market_hits > 0 or evidence.get("median_price_usd") is not None
         rows.append(
             {
                 "Decision": item["decision"],
@@ -89,6 +93,10 @@ def decision_frame(report: dict) -> pd.DataFrame:
                 "Demand / Build": item["base_score"],
                 "Product": phase3_copy.human_product_name(item["phrase"]),
                 "Segment": segment_for_phrase(item["phrase"]),
+                "Market Confirmed": market_confirmed,
+                "Factory": readiness_label(item["phrase"]),
+                "Factory Ready": ready,
+                "Preferred Format": fmt,
                 "Search Phrase": item["phrase"],
                 "Type": item["kind"],
                 "Signals": item["signal_count"],
@@ -223,7 +231,7 @@ with tab1:
         creates[
             [
                 "Decision", "Commercial", "Demand / Build", "Product", "Segment",
-                "Etsy Proxy", "Gumroad Proxy", "Median Price USD", "Signals"
+                "Market Confirmed", "Factory", "Etsy Proxy", "Gumroad Proxy", "Median Price USD", "Signals"
             ]
         ] if not creates.empty else creates
     )
@@ -254,7 +262,7 @@ with tab2:
         emerging[
             [
                 "Decision", "Commercial", "Demand / Build", "Product", "Segment",
-                "Etsy Proxy", "Gumroad Proxy", "Median Price USD", "Signals"
+                "Market Confirmed", "Factory", "Etsy Proxy", "Gumroad Proxy", "Median Price USD", "Signals"
             ]
         ] if not emerging.empty else emerging
     )
@@ -335,6 +343,8 @@ with tab5:
         "Product",
         "Segment",
         "Commercial",
+        "Market Confirmed",
+        "Factory",
         "Etsy Proxy",
         "Gumroad Proxy",
         "Median Price USD",
