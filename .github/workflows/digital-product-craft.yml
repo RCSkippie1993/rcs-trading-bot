@@ -1,0 +1,52 @@
+name: Digital Product Craft Factory
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "digital-product-bot/craft_factory/**"
+      - "digital-product-bot/selftest_craft_factory.py"
+      - "digital-product-bot/product_format.py"
+      - "digital-product-bot/requirements.txt"
+      - ".github/workflows/digital-product-craft.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-craft-product:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: digital-product-bot/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r digital-product-bot/requirements.txt
+
+      - name: Verify craft factory syntax
+        run: python -m py_compile digital-product-bot/craft_factory/*.py digital-product-bot/selftest_craft_factory.py
+
+      - name: Run craft factory self-test
+        working-directory: digital-product-bot
+        run: python selftest_craft_factory.py
+
+      - name: Build Block Adventure review product
+        working-directory: digital-product-bot
+        run: python -m craft_factory.build_craft_product --output-dir craft-output
+
+      - name: Upload craft review package
+        uses: actions/upload-artifact@v4
+        with:
+          name: block-adventure-party-favor-box-${{ github.run_number }}
+          path: digital-product-bot/craft-output/
+          if-no-files-found: error
+          retention-days: 30
