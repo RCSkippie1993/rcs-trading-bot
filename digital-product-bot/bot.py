@@ -136,6 +136,12 @@ def discover_signals(config: dict) -> Tuple[Dict[str, Counter], List[str]]:
 
 def infer_kind(phrase: str) -> str:
     p = phrase.lower()
+    if any(term in p for term in ["favor box", "favour box", "treat box", "party box", "cube box", "papercraft"]):
+        return "papercraft"
+    if any(term in p for term in ["svg", "cut file", "cricut", "silhouette", "laser cut", "dxf"]):
+        return "cut-file"
+    if any(term in p for term in ["leather pattern", "sewing pattern", "woodworking plan", "paper model"]):
+        return "craft-pattern"
     if "checklist" in p or "onboarding" in p or "maintenance" in p:
         return "checklist"
     if "planner" in p or "calendar" in p or "schedule" in p:
@@ -166,18 +172,28 @@ def score_phrase(phrase: str, counter: Counter, config: dict) -> Opportunity | N
         "template", "spreadsheet", "tracker", "planner", "checklist", "calculator",
         "dashboard", "calendar", "worksheet", "onboarding", "budget", "inventory",
         "project", "invoice", "quote", "content", "maintenance", "fitness",
+        "printable", "papercraft", "favor box", "favour box", "treat box", "party box",
+        "cube box", "svg", "cut file", "cricut", "silhouette", "pattern",
+        "leather", "sewing", "woodworking", "laser cut", "paper model", "party kit"
     ]
     buildable_hits = sum(1 for term in buildable_terms if term in p)
-    buildability = min(20, 8 + buildable_hits * 4)
+    buildability = min(24, 8 + buildable_hits * 4)
+
+    craft_terms = [
+        "papercraft", "favor box", "favour box", "treat box", "party box", "cube box",
+        "printable", "svg", "cut file", "cricut", "silhouette", "leather pattern",
+        "sewing pattern", "woodworking plan", "laser cut", "paper model"
+    ]
+    craft_bonus = 8 if any(term in p for term in craft_terms) else 0
     generic_penalty = 10 if len(words) <= 2 else 0
     question_penalty = 8 if p.startswith(("why ", "what ", "how ", "can ", "should ")) else 0
 
-    raw = demand + intent + specificity + buildability - generic_penalty - question_penalty
+    raw = demand + intent + specificity + buildability + craft_bonus - generic_penalty - question_penalty
     score = max(0, min(100, int(round(raw))))
     kind = infer_kind(p)
     reason = (
         f"demand={demand}, intent={intent}, specificity={specificity}, "
-        f"buildability={buildability}, penalties={generic_penalty + question_penalty}"
+        f"buildability={buildability}, craft_bonus={craft_bonus}, penalties={generic_penalty + question_penalty}"
     )
     return Opportunity(
         phrase=phrase,
