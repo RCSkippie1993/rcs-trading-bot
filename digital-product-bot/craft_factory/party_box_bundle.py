@@ -160,3 +160,24 @@ def build_from_opportunity(phrase:str,output_dir:Path)->tuple[Path,Path,dict]:
     )
     zip_path=_zip(root)
     return root,zip_path,report
+
+
+def main() -> int:
+    import argparse
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--phrase",default="printable favor box templates")
+    parser.add_argument("--output-dir",default="craft-phase2-output")
+    args=parser.parse_args()
+
+    root,zip_path,report=build_from_opportunity(args.phrase,Path(args.output_dir))
+    print(json.dumps({
+        "product_folder":str(root),
+        "zip":str(zip_path),
+        "quality_ready":report["ready"],
+        "checks":report["checks"],
+    },indent=2))
+    return 0 if report["ready"] else 1
+
+
+if __name__=="__main__":
+    raise SystemExit(main())
