@@ -8,7 +8,7 @@ from typing import Dict
 import svgwrite
 from PIL import Image
 
-from .papercraft_geometry import CubeNet
+from .papercraft_geometry import PapercraftNet
 from .theme_engine import Theme
 
 
@@ -21,7 +21,7 @@ def _data_uri(image: Image.Image) -> str:
 
 def export_svg(
     path: Path,
-    net: CubeNet,
+    net: PapercraftNet,
     face_art: Dict[str, Image.Image],
     theme: Theme,
 ) -> Path:
@@ -43,7 +43,7 @@ def export_svg(
             dwg.image(
                 href=_data_uri(face_art[name]),
                 insert=(face.x, face.y),
-                size=(face.size, face.size),
+                size=(face.w, face.h),
                 preserveAspectRatio="none",
             )
         )
