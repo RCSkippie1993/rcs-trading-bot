@@ -176,7 +176,7 @@ def create_listing_images(folder: Path, decision, listing: dict, brand: dict | N
     heading = _font(52, bold=True)
     body = _font(30)
     small = _font(23)
-    title = bot.title_case_phrase(decision.phrase)
+    title = listing.get("display_name") or bot.title_case_phrase(decision.phrase)
     headers = bot.headers_for_phrase(decision.phrase)
 
     assets: list[str] = []
