@@ -119,6 +119,71 @@ def select_research_candidates(
     return sorted(selected[:limit], key=lambda x: (x.score, x.signal_count), reverse=True)
 
 
+
+def production_family(decision: Decision) -> str:
+    """Group buildable CREATE ideas into commercially distinct production families."""
+    phrase = decision.phrase.lower()
+
+    if any(term in phrase for term in [
+        "favor box", "favour box", "treat box", "gift box", "party box",
+        "cricut", "book box", "box template"
+    ]):
+        return "craft-boxes"
+
+    if any(term in phrase for term in ["social media", "content calendar", "content planner", "newsletter"]):
+        return "content-marketing"
+
+    if any(term in phrase for term in ["wedding", "guest list", "event vendor", "event budget"]):
+        return "wedding-events"
+
+    if any(term in phrase for term in ["assignment", "student", "study", "exam", "teacher", "course"]):
+        return "education-study"
+
+    if any(term in phrase for term in ["personal budget", "subscription", "household budget"]):
+        return "personal-finance"
+
+    if any(term in phrase for term in ["travel", "trip", "vacation", "packing"]):
+        return "travel"
+
+    if any(term in phrase for term in ["inventory", "ecommerce", "shopify", "etsy"]):
+        return "ecommerce"
+
+    if any(term in phrase for term in ["project", "client", "proposal", "freelance", "agency"]):
+        return "business-operations"
+
+    return f"{decision.kind}:{canonical_key(decision.phrase)}"
+
+
+def select_production_batch(
+    decisions: Sequence[Decision],
+    max_products: int,
+) -> List[Decision]:
+    """Choose a diversified batch rather than several near-identical products."""
+    selected: List[Decision] = []
+    used_families: set[str] = set()
+
+    # First pass: one product per commercial family.
+    for decision in decisions:
+        family = production_family(decision)
+        if family in used_families:
+            continue
+        selected.append(decision)
+        used_families.add(family)
+        if len(selected) >= max_products:
+            return selected
+
+    # Second pass: fill any remaining slots by score if the pool is small.
+    selected_ids = {id(x) for x in selected}
+    for decision in decisions:
+        if id(decision) in selected_ids:
+            continue
+        selected.append(decision)
+        if len(selected) >= max_products:
+            break
+
+    return selected
+
+
 def _extract_redirect_target(href: str) -> str:
     href = html.unescape(href)
     if "uddg=" in href:
@@ -448,8 +513,8 @@ def main() -> int:
         if (sum(d.market_evidence.platform_hits.values()) > 0 or d.market_evidence.median_price_usd is not None)
     ]
     factory_ready = [d for d in confirmed_create if factory_readiness(d.phrase)[0]]
-    max_products = int(config.get("max_products_per_run", 3))
-    selected = factory_ready[:max_products]
+    max_products = int(config.get("max_products_per_run", 5))
+    selected = select_production_batch(factory_ready, max_products)
 
     packages: List[str] = []
     actually_created: List[Decision] = []
@@ -488,6 +553,18 @@ def main() -> int:
             "REJECT": sum(d.decision == "REJECT" for d in decisions),
         },
         "selected_for_creation": [asdict(d) for d in selected],
+        "production_batch": [
+            {
+                "phrase": d.phrase,
+                "slug": bot.slugify(d.phrase),
+                "factory": factory_for_phrase(d.phrase),
+                "family": production_family(d),
+                "commercial_score": d.commercial_score,
+                "package": packages[i] if i < len(packages) else None,
+                "status": "AWAITING_APPROVAL",
+            }
+            for i, d in enumerate(selected)
+        ],
         "review_queue": [asdict(d) for d in decisions],
         "packages": packages,
         "source_errors": source_errors,
