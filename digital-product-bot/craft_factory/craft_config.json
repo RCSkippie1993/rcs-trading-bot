@@ -1,0 +1,30 @@
+{
+  "product_name": "Block Adventure Party Favor Box Kit",
+  "slug": "block-adventure-party-favor-box-kit",
+  "box_size_mm": 60,
+  "glue_tab_mm": 10,
+  "bleed_mm": 2,
+  "safe_margin_mm": 3,
+  "artwork_dpi": 300,
+  "paper_sizes": {
+    "A4": [210, 297],
+    "US_LETTER": [215.9, 279.4]
+  },
+  "themes": [
+    "grass-earth",
+    "stone-crystal",
+    "red-energy",
+    "brick-dirt"
+  ],
+  "ip_safety": {
+    "prohibited_commercial_terms": [
+      "minecraft",
+      "mojang",
+      "creeper",
+      "steve",
+      "alex",
+      "enderman"
+    ],
+    "positioning": "Original voxel/block-adventure aesthetic. Do not reproduce franchise logos, characters, names or copied game textures."
+  }
+}
