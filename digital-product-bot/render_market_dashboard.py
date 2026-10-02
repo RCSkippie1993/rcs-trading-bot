@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import asdict
 from datetime import datetime, timezone
 
@@ -11,6 +10,7 @@ import bot
 import phase2
 import phase3_copy
 from market_probe import research_market_data
+from market_segments import segment_for_phrase
 
 st.set_page_config(
     page_title="Digital Product Market Radar",
@@ -46,8 +46,7 @@ def run_market_scan(
     watch_threshold: int,
     minimum_score: int,
 ) -> dict:
-    config = bot.load_config()
-    config = dict(config)
+    config = dict(bot.load_config())
     config["phase2_research_candidates"] = research_limit
     config["create_threshold"] = create_threshold
     config["watch_threshold"] = watch_threshold
@@ -69,6 +68,7 @@ def run_market_scan(
 
     return {
         "run_at_utc": datetime.now(timezone.utc).isoformat(),
+        "seed_markets": len(config.get("seed_markets", [])),
         "signals_seen": len(signals),
         "raw_opportunities": len(raw),
         "distinct_families": len(clustered),
@@ -88,6 +88,7 @@ def decision_frame(report: dict) -> pd.DataFrame:
                 "Commercial": item["commercial_score"],
                 "Demand / Build": item["base_score"],
                 "Product": phase3_copy.human_product_name(item["phrase"]),
+                "Segment": segment_for_phrase(item["phrase"]),
                 "Search Phrase": item["phrase"],
                 "Type": item["kind"],
                 "Signals": item["signal_count"],
@@ -101,15 +102,44 @@ def decision_frame(report: dict) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def opportunity_table(frame: pd.DataFrame) -> None:
+    if frame.empty:
+        st.info("No opportunities match this view.")
+        return
+    st.dataframe(
+        frame,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Commercial": st.column_config.ProgressColumn(
+                "Commercial", min_value=0, max_value=100, format="%d"
+            ),
+            "Demand / Build": st.column_config.ProgressColumn(
+                "Demand / Build", min_value=0, max_value=100, format="%d"
+            ),
+            "Median Price USD": st.column_config.NumberColumn(
+                "Median Price USD", format="$%.2f"
+            ),
+        },
+    )
+
+
 st.title("Digital Product Market Radar")
 st.caption(
-    "Live demand discovery and marketplace opportunity scoring for digital products. "
-    "This dashboard researches opportunities only — it does not approve, create, list or publish products."
+    "Broad-market demand discovery and opportunity scoring for digital products. "
+    "The radar researches opportunities only — it does not approve, create, list or publish products."
 )
 
 with st.sidebar:
     st.header("Scan settings")
-    research_limit = st.slider("Ideas to research", min_value=6, max_value=30, value=12, step=1)
+    research_limit = st.slider(
+        "Distinct ideas to research",
+        min_value=12,
+        max_value=40,
+        value=30,
+        step=1,
+        help="The radar scans all seed markets first, then performs slower marketplace research on the strongest distinct candidates.",
+    )
     create_threshold = st.slider("CREATE threshold", min_value=60, max_value=90, value=70)
     watch_threshold = st.slider("WATCH threshold", min_value=45, max_value=75, value=58)
     minimum_score = st.slider("Minimum demand/build score", min_value=45, max_value=80, value=62)
@@ -129,7 +159,7 @@ if run_now:
     if watch_threshold >= create_threshold:
         st.error("Set the WATCH threshold below the CREATE threshold before scanning.")
     else:
-        with st.spinner("Scanning demand signals and marketplace evidence..."):
+        with st.spinner("Scanning the broad market universe and researching the strongest opportunities..."):
             st.session_state["report"] = run_market_scan(
                 research_limit,
                 create_threshold,
@@ -140,7 +170,7 @@ if run_now:
 report = st.session_state["report"]
 
 if not report:
-    with st.spinner("Running the first live market scan..."):
+    with st.spinner("Running the first broad live market scan..."):
         report = run_market_scan(
             research_limit,
             create_threshold,
@@ -154,26 +184,83 @@ create_count = int((df["Decision"] == "CREATE").sum()) if not df.empty else 0
 watch_count = int((df["Decision"] == "WATCH").sum()) if not df.empty else 0
 reject_count = int((df["Decision"] == "REJECT").sum()) if not df.empty else 0
 
-m1, m2, m3, m4, m5, m6 = st.columns(6)
-m1.metric("Demand signals", report["signals_seen"])
-m2.metric("Raw ideas", report["raw_opportunities"])
-m3.metric("Distinct markets", report["distinct_families"])
-m4.metric("CREATE", create_count)
-m5.metric("WATCH", watch_count)
-m6.metric("REJECT", reject_count)
+r1 = st.columns(4)
+r1[0].metric("Seed markets", report["seed_markets"])
+r1[1].metric("Demand signals", report["signals_seen"])
+r1[2].metric("Raw ideas", report["raw_opportunities"])
+r1[3].metric("Distinct markets", report["distinct_families"])
+
+r2 = st.columns(4)
+r2[0].metric("Researched", report["researched"])
+r2[1].metric("CREATE", create_count)
+r2[2].metric("WATCH", watch_count)
+r2[3].metric("REJECT", reject_count)
 
 st.markdown(
     f'<div class="market-note"><b>Last scan:</b> {report["run_at_utc"]} &nbsp; '
-    f'<b>Researched:</b> {report["researched"]} distinct opportunities.</div>',
+    f'<b>Universe:</b> {report["seed_markets"]} seed markets &nbsp; '
+    f'<b>Deep research:</b> {report["researched"]} distinct opportunities.</div>',
     unsafe_allow_html=True,
 )
 
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["Opportunity ranking", "Market segments", "Evidence", "Source health"]
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    [
+        "Top 10 CREATE",
+        "Emerging opportunities",
+        "Full ranking",
+        "Market segments",
+        "Evidence",
+        "Source health",
+    ]
 )
 
 with tab1:
-    st.subheader("Ranked opportunities")
+    st.subheader("Top 10 CREATE opportunities")
+    creates = df[df["Decision"] == "CREATE"].sort_values(
+        ["Commercial", "Demand / Build"], ascending=False
+    ).head(10)
+    opportunity_table(
+        creates[
+            [
+                "Decision", "Commercial", "Demand / Build", "Product", "Segment",
+                "Etsy Proxy", "Gumroad Proxy", "Median Price USD", "Signals"
+            ]
+        ] if not creates.empty else creates
+    )
+    if not creates.empty:
+        top = creates.iloc[0]
+        st.success(
+            f"Current leader: **{top['Product']}** in **{top['Segment']}** — "
+            f"commercial score {int(top['Commercial'])}/100."
+        )
+    else:
+        st.info("No researched opportunity currently clears the CREATE threshold.")
+
+with tab2:
+    st.subheader("Emerging opportunities")
+    st.caption(
+        "WATCH ideas within five points of the current CREATE threshold. "
+        "These are the candidates most likely to move into CREATE if future demand evidence strengthens."
+    )
+    emerging = df[
+        (df["Decision"] == "WATCH")
+        & (df["Commercial"] >= create_threshold - 5)
+    ].sort_values(["Commercial", "Demand / Build"], ascending=False)
+    if emerging.empty:
+        emerging = df[df["Decision"] == "WATCH"].sort_values(
+            ["Commercial", "Demand / Build"], ascending=False
+        ).head(10)
+    opportunity_table(
+        emerging[
+            [
+                "Decision", "Commercial", "Demand / Build", "Product", "Segment",
+                "Etsy Proxy", "Gumroad Proxy", "Median Price USD", "Signals"
+            ]
+        ] if not emerging.empty else emerging
+    )
+
+with tab3:
+    st.subheader("Full researched ranking")
     if df.empty:
         st.warning("No opportunities were returned.")
     else:
@@ -182,71 +269,62 @@ with tab1:
             ["CREATE", "WATCH", "REJECT"],
             default=["CREATE", "WATCH"],
         )
-        filtered = df[df["Decision"].isin(decision_filter)].copy()
-        st.dataframe(
-            filtered,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Commercial": st.column_config.ProgressColumn(
-                    "Commercial",
-                    min_value=0,
-                    max_value=100,
-                    format="%d",
-                ),
-                "Demand / Build": st.column_config.ProgressColumn(
-                    "Demand / Build",
-                    min_value=0,
-                    max_value=100,
-                    format="%d",
-                ),
-                "Median Price USD": st.column_config.NumberColumn(
-                    "Median Price USD",
-                    format="$%.2f",
-                ),
-            },
+        segment_options = sorted(df["Segment"].dropna().unique().tolist())
+        segment_filter = st.multiselect(
+            "Filter market segments",
+            segment_options,
+            default=[],
         )
+        filtered = df[df["Decision"].isin(decision_filter)].copy()
+        if segment_filter:
+            filtered = filtered[filtered["Segment"].isin(segment_filter)]
+        opportunity_table(filtered)
 
-        creates = filtered[filtered["Decision"] == "CREATE"]
-        if not creates.empty:
-            top = creates.iloc[0]
-            st.success(
-                f"Highest CREATE opportunity: **{top['Product']}** — "
-                f"commercial score {int(top['Commercial'])}/100."
-            )
-
-with tab2:
+with tab4:
     st.subheader("Where the opportunity pool is clustering")
     if not df.empty:
+        segment_summary = (
+            df.groupby("Segment")
+            .agg(
+                Opportunities=("Product", "count"),
+                Avg_Commercial=("Commercial", "mean"),
+                Best_Commercial=("Commercial", "max"),
+                Create_Count=("Decision", lambda x: int((x == "CREATE").sum())),
+                Watch_Count=("Decision", lambda x: int((x == "WATCH").sum())),
+            )
+            .reset_index()
+            .sort_values(
+                ["Create_Count", "Best_Commercial", "Avg_Commercial"],
+                ascending=False,
+            )
+        )
+        segment_summary["Avg_Commercial"] = segment_summary["Avg_Commercial"].round(1)
+        st.dataframe(segment_summary, use_container_width=True, hide_index=True)
+
         kind_summary = (
             df.groupby("Type")
             .agg(
                 Opportunities=("Product", "count"),
                 Avg_Commercial=("Commercial", "mean"),
                 Create_Count=("Decision", lambda x: int((x == "CREATE").sum())),
-                Watch_Count=("Decision", lambda x: int((x == "WATCH").sum())),
             )
             .reset_index()
             .sort_values(["Create_Count", "Avg_Commercial"], ascending=False)
         )
         kind_summary["Avg_Commercial"] = kind_summary["Avg_Commercial"].round(1)
+        st.markdown("#### Product-format mix")
         st.dataframe(kind_summary, use_container_width=True, hide_index=True)
-
-        decision_summary = (
-            df.groupby("Decision")
-            .size()
-            .rename("Count")
-            .reset_index()
-        )
 
         st.markdown("#### Decision mix")
         cols = st.columns(3)
-        decision_order = ["CREATE", "WATCH", "REJECT"]
-        counts = dict(zip(decision_summary["Decision"], decision_summary["Count"]))
-        for col, label in zip(cols, decision_order):
-            col.metric(label, int(counts.get(label, 0)))
+        for col, label, value in zip(
+            cols,
+            ["CREATE", "WATCH", "REJECT"],
+            [create_count, watch_count, reject_count],
+        ):
+            col.metric(label, value)
 
-with tab3:
+with tab5:
     st.subheader("Marketplace evidence")
     st.caption(
         "Etsy and Gumroad counts are sampled public-search proxies, not complete marketplace inventory counts. "
@@ -255,25 +333,16 @@ with tab3:
     evidence_cols = [
         "Decision",
         "Product",
+        "Segment",
         "Commercial",
         "Etsy Proxy",
         "Gumroad Proxy",
         "Median Price USD",
         "Research Warnings",
     ]
-    st.dataframe(
-        df[evidence_cols],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Median Price USD": st.column_config.NumberColumn(
-                "Median Price USD",
-                format="$%.2f",
-            )
-        },
-    )
+    opportunity_table(df[evidence_cols] if not df.empty else df)
 
-with tab4:
+with tab6:
     st.subheader("Research source health")
     source_errors = report.get("source_errors", [])
     if not source_errors:
@@ -289,6 +358,7 @@ with tab4:
             evidence_errors.append(
                 {
                     "Product": phase3_copy.human_product_name(item["phrase"]),
+                    "Segment": segment_for_phrase(item["phrase"]),
                     "Warning": error,
                 }
             )
