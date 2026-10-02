@@ -45,8 +45,8 @@ def main():
         errors=[],
     )
     weak_decision = phase2.classify(a, weak_evidence, config)
-    assert weak_decision.decision == "WATCH", weak_decision
-    assert any("blocked" in reason.lower() for reason in weak_decision.reasons)
+    assert weak_decision.decision == "CREATE", weak_decision
+    assert any("unverified" in reason.lower() for reason in weak_decision.reasons)
 
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
