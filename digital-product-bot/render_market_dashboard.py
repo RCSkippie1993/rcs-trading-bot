@@ -11,7 +11,9 @@ import phase2
 import phase3_copy
 from market_probe import research_market_data
 from market_segments import segment_for_phrase
-from product_format import factory_readiness, readiness_label
+from product_format import factory_for_phrase, factory_readiness, readiness_label
+from craft_factory.box_shape_router import shape_for_phrase
+from craft_factory.party_theme_engine import commercial_theme_name, infer_party_theme
 
 st.set_page_config(
     page_title="Digital Product Market Radar",
@@ -91,6 +93,10 @@ def decision_frame(report: dict) -> pd.DataFrame:
     for item in report["decisions"]:
         evidence = item["market_evidence"]
         ready, fmt, readiness_reason = factory_readiness(item["phrase"])
+        factory_name = factory_for_phrase(item["phrase"])
+        craft_shape = shape_for_phrase(item["phrase"]) if factory_name == "CRAFT" else ""
+        craft_theme_slug = infer_party_theme(item["phrase"]) if factory_name == "CRAFT" else ""
+        craft_theme = commercial_theme_name(craft_theme_slug) if craft_theme_slug else ""
         total_market_hits = sum(evidence["platform_hits"].values())
         market_confirmed = total_market_hits > 0 or evidence.get("median_price_usd") is not None
         rows.append(
@@ -110,6 +116,8 @@ def decision_frame(report: dict) -> pd.DataFrame:
                 ),
                 "Factory Ready": ready,
                 "Preferred Format": fmt,
+                "Suggested Shape": craft_shape,
+                "Suggested Theme": craft_theme,
                 "Search Phrase": item["phrase"],
                 "Type": item["kind"],
                 "Signals": item["signal_count"],
@@ -288,6 +296,7 @@ with tab2:
             [
                 "Decision", "Commercial", "Demand / Build", "Product", "Segment",
                 "Evidence", "Factory", "Auto Build", "Preferred Format",
+                "Suggested Shape", "Suggested Theme",
                 "Etsy Proxy", "Gumroad Proxy", "Signals"
             ]
         ] if not craft_df.empty else craft_df
