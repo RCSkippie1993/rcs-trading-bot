@@ -71,6 +71,66 @@ def _pixel_grid(theme: Theme, face: str, size_px: int) -> Image.Image:
                 fill = rnd.choice(theme.palette[:3])
                 draw.rectangle((x + 2, y + 2, x + brick_w - 2, y + brick_h - 2), fill=fill, outline=theme.dark, width=2)
 
+    elif theme.motif == "space":
+        for _ in range(34):
+            x = rnd.randrange(0, size_px)
+            y = rnd.randrange(0, size_px)
+            r = rnd.choice([2, 3, 5, 7])
+            draw.ellipse((x-r, y-r, x+r, y+r), fill=rnd.choice([theme.accent, "#FFFFFF", "#F08BC8"]))
+        for _ in range(4):
+            x = rnd.randrange(cell * 2, size_px - cell * 3)
+            y = rnd.randrange(cell * 2, size_px - cell * 3)
+            r = rnd.randrange(cell, cell * 2)
+            draw.ellipse((x-r, y-r, x+r, y+r), fill=rnd.choice(theme.palette[1:4]))
+            draw.arc((x-r*2, y-r//2, x+r*2, y+r//2), 0, 360, fill=theme.accent, width=max(2, cell//5))
+
+    elif theme.motif == "dino":
+        for _ in range(18):
+            x = rnd.randrange(cell, size_px-cell*2)
+            y = rnd.randrange(cell, size_px-cell*2)
+            foot = max(4, cell // 2)
+            draw.ellipse((x, y, x+foot, y+foot*2), fill=theme.dark)
+            draw.ellipse((x+foot, y-foot//2, x+foot*2, y+foot), fill=theme.dark)
+            draw.ellipse((x-foot//2, y-foot//2, x+foot//2, y+foot), fill=theme.dark)
+        for _ in range(6):
+            x = rnd.randrange(cell, size_px-cell*3)
+            y = rnd.randrange(cell, size_px-cell*3)
+            draw.ellipse((x, y, x+cell*2, y+cell*3), fill=theme.accent, outline=theme.dark, width=max(2, cell//5))
+
+    elif theme.motif == "race":
+        block = max(8, cell * 2)
+        for y in range(0, size_px, block):
+            for x in range(0, size_px, block):
+                if (x // block + y // block) % 2 == 0:
+                    draw.rectangle((x, y, x+block, y+block), fill="#FFFFFF")
+                else:
+                    draw.rectangle((x, y, x+block, y+block), fill=theme.dark)
+        for stripe in range(-size_px, size_px*2, block*5):
+            draw.line((stripe, 0, stripe-size_px, size_px), fill=theme.accent, width=max(4, cell))
+
+    elif theme.motif == "confetti":
+        for _ in range(60):
+            x = rnd.randrange(0, size_px)
+            y = rnd.randrange(0, size_px)
+            length = rnd.randrange(max(4, cell//2), max(8, cell*2))
+            color = rnd.choice(theme.palette + [theme.accent])
+            if rnd.random() < 0.5:
+                draw.ellipse((x, y, x+length, y+length), fill=color)
+            else:
+                draw.rectangle((x, y, x+length, y+max(3, length//3)), fill=color)
+
+    elif theme.motif == "ocean":
+        wave_h = max(10, cell * 2)
+        for y in range(0, size_px + wave_h, wave_h):
+            color = rnd.choice(theme.palette[:4])
+            for x in range(-wave_h, size_px + wave_h, wave_h):
+                draw.arc((x, y-wave_h//2, x+wave_h*2, y+wave_h), 180, 360, fill=color, width=max(4, cell//2))
+        for _ in range(26):
+            x = rnd.randrange(0, size_px)
+            y = rnd.randrange(0, size_px)
+            r = rnd.randrange(max(3, cell//4), max(5, cell))
+            draw.ellipse((x-r, y-r, x+r, y+r), outline=theme.accent, width=max(2, cell//5))
+
     # Original small pixel accents to keep the design playful and distinct.
     for _ in range(9):
         x = rnd.randrange(1, cells - 2) * cell
