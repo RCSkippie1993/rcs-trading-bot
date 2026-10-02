@@ -202,7 +202,7 @@ def classify(opportunity: bot.Opportunity, evidence: MarketEvidence, config: dic
 
     has_market_evidence = total_hits > 0 or median is not None
 
-    if commercial_score >= create_threshold and opportunity.score >= minimum_base and has_market_evidence:
+    if commercial_score >= create_threshold and opportunity.score >= minimum_base:
         decision = "CREATE"
     elif commercial_score >= watch_threshold:
         decision = "WATCH"
@@ -214,7 +214,7 @@ def classify(opportunity: bot.Opportunity, evidence: MarketEvidence, config: dic
         competition_note,
         price_note,
         f"Commercial specificity contribution: {niche_points}/10.",
-        "Marketplace evidence confirmed." if has_market_evidence else "Marketplace evidence not yet confirmed; CREATE is blocked until evidence appears.",
+        "Marketplace evidence confirmed." if has_market_evidence else "Marketplace evidence remains unverified; treat the opportunity as a candidate, not a validated market.",
     ]
     return Decision(
         phrase=opportunity.phrase,
@@ -403,7 +403,11 @@ def main() -> int:
     from product_format import factory_readiness
 
     create_candidates = [d for d in decisions if d.decision == "CREATE"]
-    factory_ready = [d for d in create_candidates if factory_readiness(d.phrase)[0]]
+    confirmed_create = [
+        d for d in create_candidates
+        if (sum(d.market_evidence.platform_hits.values()) > 0 or d.market_evidence.median_price_usd is not None)
+    ]
+    factory_ready = [d for d in confirmed_create if factory_readiness(d.phrase)[0]]
     max_products = int(config.get("max_products_per_run", 3))
     selected = factory_ready[:max_products]
 
