@@ -15,14 +15,21 @@ def human_product_name(phrase: str) -> str:
     core = re.sub(r"\bgoogle sheets\b", " ", core)
     core = re.sub(r"\bexcel\b", " ", core)
     core = re.sub(r"\bfree\b", " ", core)
+    core = re.sub(r"\bdownload\b", " ", core)
+    core = re.sub(r"\bdigital\b", " ", core)
+    core = re.sub(r"\bword\b", " ", core)
+    core = re.sub(r"\bdocx\b", " ", core)
     core = re.sub(r"\btemplate\b", " ", core)
     core = re.sub(r"\s+", " ", core).strip(" -")
 
     base = bot.title_case_phrase(core or phrase)
+    is_word = bool(re.search(r"\b(word|docx)\b", raw))
     if is_google_sheets:
         return f"{base} – Google Sheets Template"
     if is_excel:
         return f"{base} – Excel Template"
+    if is_word:
+        return f"{base} – Word Template"
     return f"{base} – Editable Template"
 
 
