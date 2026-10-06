@@ -3,9 +3,11 @@ name: Phase 3 Scheduled Forward Paper
 on:
   workflow_dispatch:
   schedule:
-    # 7 minutes after each 15-minute boundary during the core JSE weekday window.
+    # JSE paper checks at 09:07, 12:07 and 17:07 SAST on weekdays.
     # GitHub cron is UTC; South Africa is UTC+2 year-round.
-    - cron: "7,22,37,52 7-15 * * 1-5"
+    # Each run processes every completed 15-minute bar since the persisted state,
+    # so three daily checks are sufficient without burning Actions minutes every 15 minutes.
+    - cron: "7 7,10,15 * * 1-5"
 
 permissions:
   contents: write
@@ -16,17 +18,19 @@ concurrency:
 
 jobs:
   forward-paper:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout strategy code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: "pip"
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -75,6 +79,9 @@ jobs:
             fi
           done
           echo "Successful symbols: ${successes}; failed symbols: ${failures}"
+          if [ "$failures" -gt 0 ]; then
+            echo "::warning::${failures} symbol(s) failed this cycle."
+          fi
           if [ "$successes" -eq 0 ]; then
             echo "All symbols failed; aborting this cycle." >&2
             exit 1
