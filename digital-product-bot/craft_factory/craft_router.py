@@ -17,10 +17,15 @@ PAPERCRAFT_BOX_TERMS = [
     "foldable box", "papercraft box", "loot box", "box template",
 ]
 
+LEATHER_PATTERN_TERMS = [
+    "leather pattern", "wallet pattern", "leather wallet", "card holder pattern",
+    "cardholder pattern", "card wallet pattern", "slim wallet pattern",
+    "minimalist wallet pattern", "bifold wallet pattern", "bi-fold wallet pattern",
+]
+
 CRAFT_PATTERN_TERMS = [
-    "leather pattern", "wallet pattern", "sewing pattern", "woodworking plan",
-    "craft pattern", "papercraft", "paper model", "stencil", "laser cut",
-    "cricut", "silhouette", "dxf", "svg cut",
+    "sewing pattern", "woodworking plan", "craft pattern", "papercraft", "paper model",
+    "stencil", "laser cut", "cricut", "silhouette", "dxf", "svg cut",
 ]
 
 
@@ -33,6 +38,16 @@ def route_craft_phrase(phrase: str) -> CraftRoute:
             format="PAPERCRAFT",
             ready=True,
             reason="Favor/gift/treat box demand can be built by the multi-shape party box factory with original theme artwork.",
+        )
+
+    if any(term in text for term in LEATHER_PATTERN_TERMS) or (
+        "leather" in text and any(term in text for term in ["wallet", "card holder", "cardholder"]) and "pattern" in text
+    ):
+        return CraftRoute(
+            factory="CRAFT",
+            format="LEATHER_PATTERN",
+            ready=True,
+            reason="Leather wallet/cardholder demand can be built by the true-size leather pattern factory with PDF, SVG and assembly assets.",
         )
 
     if "svg" in text and any(term in text for term in ["party", "box", "cut file", "template"]):
@@ -50,7 +65,6 @@ def route_craft_phrase(phrase: str) -> CraftRoute:
 
     if (
         any(term in text for term in CRAFT_PATTERN_TERMS)
-        or ("leather" in text and "pattern" in text)
         or ("sewing" in text and "pattern" in text)
         or ("woodworking" in text and ("plan" in text or "pattern" in text))
     ):
