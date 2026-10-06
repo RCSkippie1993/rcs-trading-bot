@@ -155,19 +155,19 @@ def opportunity_table(frame: pd.DataFrame) -> None:
 
 st.title("Digital Product Market Radar")
 st.caption(
-    "Broad-market demand discovery and opportunity scoring for digital products. "
-    "The radar researches opportunities only — it does not approve, create, list or publish products."
+    "Craft-first demand discovery for Etsy-style digital products, while still monitoring broader digital-product opportunities. "
+    "The radar researches opportunities only — it does not approve, list or publish products."
 )
 
 with st.sidebar:
     st.header("Scan settings")
     research_limit = st.slider(
         "Distinct ideas to research",
-        min_value=12,
-        max_value=40,
-        value=30,
+        min_value=20,
+        max_value=60,
+        value=50,
         step=1,
-        help="The radar scans all seed markets first, then performs slower marketplace research on the strongest distinct candidates.",
+        help="The radar scans all seed markets first, then performs slower marketplace research on the strongest distinct candidates. Craft ideas receive reserved research capacity.",
     )
     create_threshold = st.slider("CREATE threshold", min_value=60, max_value=90, value=70)
     watch_threshold = st.slider("WATCH threshold", min_value=45, max_value=75, value=58)
@@ -188,7 +188,7 @@ if run_now:
     if watch_threshold >= create_threshold:
         st.error("Set the WATCH threshold below the CREATE threshold before scanning.")
     else:
-        with st.spinner("Scanning the broad market universe and researching the strongest opportunities..."):
+        with st.spinner("Scanning the craft-first market universe and researching the strongest opportunities..."):
             st.session_state["report"] = run_market_scan(
                 research_limit,
                 create_threshold,
@@ -199,7 +199,7 @@ if run_now:
 report = st.session_state["report"]
 
 if not report:
-    with st.spinner("Running the first broad live market scan..."):
+    with st.spinner("Running the first craft-first live market scan..."):
         report = run_market_scan(
             research_limit,
             create_threshold,
@@ -212,6 +212,12 @@ df = decision_frame(report)
 create_count = int((df["Decision"] == "CREATE").sum()) if not df.empty else 0
 watch_count = int((df["Decision"] == "WATCH").sum()) if not df.empty else 0
 reject_count = int((df["Decision"] == "REJECT").sum()) if not df.empty else 0
+craft_mask = (
+    df["Segment"].isin(["Kids Party & Papercraft", "Craft & DIY"])
+    | df["Factory"].astype(str).str.contains("CRAFT", na=False)
+) if not df.empty else pd.Series(dtype=bool)
+craft_count = int(craft_mask.sum()) if not df.empty else 0
+craft_create_count = int(((df["Decision"] == "CREATE") & craft_mask).sum()) if not df.empty else 0
 
 r1 = st.columns(4)
 r1[0].metric("Seed markets", report["seed_markets"])
@@ -232,9 +238,11 @@ r2[1].metric("CREATE candidates", create_count)
 r2[2].metric("Confirmed CREATE", confirmed_create_count)
 r2[3].metric("Auto-build eligible", auto_build_count)
 
-r3 = st.columns(2)
-r3[0].metric("WATCH", watch_count)
-r3[1].metric("REJECT", reject_count)
+r3 = st.columns(4)
+r3[0].metric("Craft ideas", craft_count)
+r3[1].metric("Craft CREATE", craft_create_count)
+r3[2].metric("WATCH", watch_count)
+r3[3].metric("REJECT", reject_count)
 
 st.markdown(
     f'<div class="market-note"><b>Last scan:</b> {report["run_at_utc"]} &nbsp; '
@@ -281,16 +289,11 @@ with tab1:
 with tab2:
     st.subheader("Craft & kids-party opportunities")
     st.caption(
-        "This lane surfaces papercraft, favor boxes, SVG cut files and other DIY-pattern demand separately "
-        "from spreadsheets and office templates."
-    )
-    craft_mask = (
-        df["Segment"].isin(["Kids Party & Papercraft", "Craft & DIY"])
-        | df["Factory"].astype(str).str.contains("CRAFT", na=False)
+        "This lane prioritizes Etsy-style papercraft, favor boxes, leather patterns, SVG cut files, paper models and other DIY-pattern demand separately from spreadsheets and office templates."
     )
     craft_df = df[craft_mask].sort_values(
         ["Commercial", "Demand / Build"], ascending=False
-    )
+    ) if not df.empty else df
     opportunity_table(
         craft_df[
             [
