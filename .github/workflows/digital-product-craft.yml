@@ -52,6 +52,10 @@ jobs:
         working-directory: digital-product-bot
         run: python -m craft_factory.leather_pattern_factory --phrase "leather card holder pattern pdf" --output-dir leather-pattern-output
 
+      - name: Build felt fox review product
+        working-directory: digital-product-bot
+        run: python -m craft_factory.felt_pattern_factory --phrase "felt fox sewing pattern pdf" --output-dir felt-pattern-output
+
       - name: Upload papercraft review package
         uses: actions/upload-artifact@v4
         with:
@@ -65,5 +69,13 @@ jobs:
         with:
           name: leather-cardholder-pattern-${{ github.run_number }}
           path: digital-product-bot/leather-pattern-output/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload felt review package
+        uses: actions/upload-artifact@v4
+        with:
+          name: felt-fox-pattern-${{ github.run_number }}
+          path: digital-product-bot/felt-pattern-output/
           if-no-files-found: error
           retention-days: 30
