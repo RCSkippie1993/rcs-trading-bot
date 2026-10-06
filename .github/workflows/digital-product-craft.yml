@@ -48,10 +48,22 @@ jobs:
         working-directory: digital-product-bot
         run: python -m craft_factory.party_box_bundle --phrase "printable favor box templates" --output-dir craft-phase2-output
 
-      - name: Upload craft review package
+      - name: Build leather cardholder review product
+        working-directory: digital-product-bot
+        run: python -m craft_factory.leather_pattern_factory --phrase "leather card holder pattern pdf" --output-dir leather-pattern-output
+
+      - name: Upload papercraft review package
         uses: actions/upload-artifact@v4
         with:
           name: favor-box-shape-bundle-${{ github.run_number }}
           path: digital-product-bot/craft-phase2-output/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload leather review package
+        uses: actions/upload-artifact@v4
+        with:
+          name: leather-cardholder-pattern-${{ github.run_number }}
+          path: digital-product-bot/leather-pattern-output/
           if-no-files-found: error
           retention-days: 30
