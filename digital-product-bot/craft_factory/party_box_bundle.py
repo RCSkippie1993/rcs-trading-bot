@@ -10,6 +10,7 @@ import bot
 
 from .artwork_engine import generate_art_for_net
 from .box_shape_router import shapes_for_phrase
+from .craft_router import route_craft_phrase
 from .papercraft_geometry import build_shape_net
 from .party_bundle_guide import export_bundle_guide
 from .party_bundle_listing_assets import create_bundle_listing_images
@@ -85,6 +86,11 @@ def _zip(root:Path)->Path:
 
 
 def build_from_opportunity(phrase:str,output_dir:Path)->tuple[Path,Path,dict]:
+    route=route_craft_phrase(phrase)
+    if route.format=="LEATHER_PATTERN":
+        from .leather_pattern_factory import build_from_opportunity as build_leather_pattern
+        return build_leather_pattern(phrase,output_dir)
+
     config=load_config()
     theme_slug=infer_party_theme(phrase)
     themes=theme_pack(theme_slug)
