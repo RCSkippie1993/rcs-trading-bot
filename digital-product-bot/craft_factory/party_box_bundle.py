@@ -90,6 +90,9 @@ def build_from_opportunity(phrase:str,output_dir:Path)->tuple[Path,Path,dict]:
     if route.format=="LEATHER_PATTERN":
         from .leather_pattern_factory import build_from_opportunity as build_leather_pattern
         return build_leather_pattern(phrase,output_dir)
+    if route.format=="FELT_PATTERN":
+        from .felt_pattern_factory import build_from_opportunity as build_felt_pattern
+        return build_felt_pattern(phrase,output_dir)
 
     config=load_config()
     theme_slug=infer_party_theme(phrase)
