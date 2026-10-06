@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 
 import bot
 from craft_factory.box_shape_router import shapes_for_phrase
+from craft_factory.craft_router import route_craft_phrase
 from craft_factory.papercraft_geometry import (
     build_cube_net, build_gable_box_net, build_gift_box_net,
     build_milk_carton_net, build_treat_box_net, fits_paper
@@ -38,6 +39,10 @@ def main():
     assert infer_party_theme("dinosaur birthday treat box")=="dino-dash"
     assert infer_party_theme("space rocket favor box")=="cosmic-quest"
 
+    leather_route=route_craft_phrase("leather card holder pattern pdf")
+    assert leather_route.ready is True
+    assert leather_route.format=="LEATHER_PATTERN"
+
     config=bot.load_config()
     from collections import Counter
     assert bot.score_phrase("sewing pattern print shop near me",Counter({"test":2}),config) is None
@@ -52,6 +57,17 @@ def main():
             ET.parse(svg)
         status=json.loads((root/"status.json").read_text(encoding="utf-8"))
         assert status["status"]=="AWAITING_APPROVAL"
+        assert status["publishing_enabled"] is False
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root,zip_path,report=build_from_opportunity("leather card holder pattern pdf",Path(tmp))
+        assert report["ready"] is True, report
+        assert zip_path.exists() and zip_path.stat().st_size>0
+        assert (root/"Pattern-A4.pdf").exists()
+        assert (root/"Pattern-US-Letter.pdf").exists()
+        assert len(list((root/"SVG").glob("*.svg")))==2
+        status=json.loads((root/"status.json").read_text(encoding="utf-8"))
+        assert status["product_type"]=="LEATHER_PATTERN"
         assert status["publishing_enabled"] is False
 
     print("craft factory phase2 self-test passed")
