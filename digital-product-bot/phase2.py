@@ -157,27 +157,45 @@ def production_family(decision: Decision) -> str:
 def select_production_batch(
     decisions: Sequence[Decision],
     max_products: int,
+    craft_quota: int = 0,
 ) -> List[Decision]:
-    """Choose a diversified batch rather than several near-identical products."""
-    selected: List[Decision] = []
-    used_families: set[str] = set()
+    """Choose a diversified batch while reserving explicit production capacity for craft products."""
+    from market_segments import segment_for_phrase
 
-    # First pass: one product per commercial family.
-    for decision in decisions:
+    craft_segments = {"Kids Party & Papercraft", "Craft & DIY"}
+    craft = [d for d in decisions if segment_for_phrase(d.phrase) in craft_segments]
+    other = [d for d in decisions if segment_for_phrase(d.phrase) not in craft_segments]
+
+    selected: List[Decision] = []
+    selected_ids: set[int] = set()
+    reserved_crafts = max(0, min(int(craft_quota), int(max_products), len(craft)))
+
+    # Craft-first reservation: these products are deliberately allowed to share a
+    # commercial family because different themes/shapes can be separate Etsy listings.
+    for decision in craft[:reserved_crafts]:
+        selected.append(decision)
+        selected_ids.add(id(decision))
+        if len(selected) >= max_products:
+            return selected
+
+    # Add diverse non-craft products after the reserved Etsy-craft allocation.
+    used_families: set[str] = set()
+    for decision in other:
         family = production_family(decision)
         if family in used_families:
             continue
         selected.append(decision)
+        selected_ids.add(id(decision))
         used_families.add(family)
         if len(selected) >= max_products:
             return selected
 
-    # Second pass: fill any remaining slots by score if the pool is small.
-    selected_ids = {id(x) for x in selected}
+    # Fill remaining capacity by score without duplicating decisions.
     for decision in decisions:
         if id(decision) in selected_ids:
             continue
         selected.append(decision)
+        selected_ids.add(id(decision))
         if len(selected) >= max_products:
             break
 
@@ -514,17 +532,18 @@ def main() -> int:
     ]
     factory_ready = [d for d in confirmed_create if factory_readiness(d.phrase)[0]]
     max_products = int(config.get("max_products_per_run", 5))
-    selected = select_production_batch(factory_ready, max_products)
+    craft_production_quota = int(config.get("craft_products_per_run", min(8, max_products)))
+    selected = select_production_batch(factory_ready, max_products, craft_production_quota)
 
     packages: List[str] = []
     actually_created: List[Decision] = []
-    craft_built = False
+    craft_built = 0
     for decision in selected:
         factory = factory_for_phrase(decision.phrase)
         if factory == "BUSINESS":
             packages.append(str(Path(enrich_product(decision, products_root, config)).relative_to(run_root)))
             actually_created.append(decision)
-        elif factory == "CRAFT" and not craft_built:
+        elif factory == "CRAFT" and craft_built < craft_production_quota:
             from craft_factory.party_box_bundle import build_from_opportunity
             _, zip_path, craft_report = build_from_opportunity(
                 decision.phrase,
@@ -533,7 +552,7 @@ def main() -> int:
             if craft_report.get("ready"):
                 packages.append(str(zip_path.relative_to(run_root)))
                 actually_created.append(decision)
-                craft_built = True
+                craft_built += 1
 
     selected = actually_created
 
@@ -547,6 +566,9 @@ def main() -> int:
         "raw_opportunities": len(raw),
         "after_duplicate_clustering": len(clustered),
         "researched": len(decisions),
+        "craft_research_quota": int(config.get("craft_research_quota", 10)),
+        "craft_production_quota": craft_production_quota,
+        "craft_products_created": craft_built,
         "decision_counts": {
             "CREATE": sum(d.decision == "CREATE" for d in decisions),
             "WATCH": sum(d.decision == "WATCH" for d in decisions),
@@ -570,6 +592,7 @@ def main() -> int:
         "source_errors": source_errors,
         "notes": [
             "Marketplace competition uses sampled public search-result links as a proxy, not an exhaustive listing count.",
+            "Craft production is intentionally prioritized and capped separately from general products.",
             "Products remain AWAITING_APPROVAL and are not published automatically.",
         ],
     }
