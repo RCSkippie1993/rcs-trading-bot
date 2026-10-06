@@ -23,6 +23,12 @@ LEATHER_PATTERN_TERMS = [
     "minimalist wallet pattern", "bifold wallet pattern", "bi-fold wallet pattern",
 ]
 
+FELT_PATTERN_TERMS = [
+    "felt pattern", "felt sewing pattern", "felt animal pattern", "felt ornament pattern",
+    "felt fox pattern", "felt bunny pattern", "felt rabbit pattern", "felt dinosaur pattern",
+    "felt bear pattern", "felt plush pattern", "felt toy pattern",
+]
+
 CRAFT_PATTERN_TERMS = [
     "sewing pattern", "woodworking plan", "craft pattern", "papercraft", "paper model",
     "stencil", "laser cut", "cricut", "silhouette", "dxf", "svg cut",
@@ -48,6 +54,16 @@ def route_craft_phrase(phrase: str) -> CraftRoute:
             format="LEATHER_PATTERN",
             ready=True,
             reason="Leather wallet/cardholder demand can be built by the true-size leather pattern factory with PDF, SVG and assembly assets.",
+        )
+
+    if any(term in text for term in FELT_PATTERN_TERMS) or (
+        "felt" in text and "pattern" in text and any(term in text for term in ["sewing", "animal", "ornament", "plush", "toy", "fox", "bunny", "rabbit", "dinosaur", "bear"])
+    ):
+        return CraftRoute(
+            factory="CRAFT",
+            format="FELT_PATTERN",
+            ready=True,
+            reason="Felt animal and ornament demand can be built by the true-size felt sewing factory with printable PDF, SVG, stitch guides and assembly assets.",
         )
 
     if "svg" in text and any(term in text for term in ["party", "box", "cut file", "template"]):
