@@ -1,15 +1,15 @@
 {
-  "bars_processed": 280,
+  "bars_processed": 289,
   "cash": 9237.492576049084,
   "closed_trades": 12,
   "first_bar_time": "2026-10-01 16:45:00+02:00",
   "gross_loss": 55.64393006879516,
   "gross_profit": 69.01897347788508,
   "halted": false,
-  "last_bar_time": "2026-10-14 14:30:00+02:00",
+  "last_bar_time": "2026-10-14 16:45:00+02:00",
   "losses": 7,
   "max_drawdown_pct": 0.5297658891763564,
-  "peak_equity": 10013.375043409083,
+  "peak_equity": 10017.642576049084,
   "pending_signal": null,
   "position": {
     "entry_fee": 0.77510736,
