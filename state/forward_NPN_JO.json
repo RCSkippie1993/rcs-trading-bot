@@ -1,22 +1,27 @@
 {
-  "bars_processed": 472,
-  "cash": 9969.80375623449,
+  "bars_processed": 481,
+  "cash": 9293.911098794491,
   "closed_trades": 20,
   "first_bar_time": "2026-10-01 16:45:00+02:00",
   "gross_loss": 67.06171993282737,
   "gross_profit": 36.86547616732071,
   "halted": false,
-  "last_bar_time": "2026-10-22 14:30:00+02:00",
+  "last_bar_time": "2026-10-22 16:45:00+02:00",
   "losses": 17,
   "max_drawdown_pct": 0.4675588978400997,
   "peak_equity": 10010.03668394281,
   "pending_signal": null,
-  "position": null,
+  "position": {
+    "entry_fee": 0.6752174400000001,
+    "entry_price": 675.21744,
+    "entry_time": "2026-10-22 15:15:00+02:00",
+    "quantity": 1
+  },
   "realized_pnl": -30.196243765506665,
   "session_key": "2026-10-22",
   "session_start_equity": 9974.14680739449,
   "starting_cash": 10000.0,
-  "total_fees": 28.34621692315765,
-  "trades_this_session": 1,
+  "total_fees": 29.021434363157653,
+  "trades_this_session": 2,
   "wins": 3
 }
